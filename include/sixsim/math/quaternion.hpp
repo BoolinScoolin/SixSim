@@ -12,6 +12,22 @@ struct Quaternion {
   double y{};
   double z{};
 
+  constexpr Quaternion operator+(const Quaternion& other) const {
+    return {w + other.w, x + other.x, y + other.y, z + other.z};
+  }
+
+  constexpr Quaternion operator-(const Quaternion& other) const {
+    return {w - other.w, x - other.x, y - other.y, z - other.z};
+  }
+
+  constexpr Quaternion operator*(double scalar) const {
+    return {w * scalar, x * scalar, y * scalar, z * scalar};
+  }
+
+  constexpr Quaternion operator/(double scalar) const {
+    return {w / scalar, x / scalar, y / scalar, z / scalar};
+  }
+
   constexpr Quaternion operator*(const Quaternion& other) const {
     return {
         w * other.w - x * other.x - y * other.y - z * other.z,
@@ -21,11 +37,47 @@ struct Quaternion {
     };
   }
 
+  constexpr Quaternion& operator+=(const Quaternion& other) {
+    w += other.w;
+    x += other.x;
+    y += other.y;
+    z += other.z;
+    return *this;
+  }
+
+  constexpr Quaternion& operator-=(const Quaternion& other) {
+    w -= other.w;
+    x -= other.x;
+    y -= other.y;
+    z -= other.z;
+    return *this;
+  }
+
+  constexpr Quaternion& operator*=(double scalar) {
+    w *= scalar;
+    x *= scalar;
+    y *= scalar;
+    z *= scalar;
+    return *this;
+  }
+
+  constexpr Quaternion& operator/=(double scalar) {
+    w /= scalar;
+    x /= scalar;
+    y /= scalar;
+    z /= scalar;
+    return *this;
+  }
+
   constexpr Quaternion& operator*=(const Quaternion& other) {
     *this = *this * other;
     return *this;
   }
 };
+
+constexpr Quaternion operator*(double scalar, const Quaternion& quaternion) {
+  return quaternion * scalar;
+}
 
 constexpr Quaternion conjugate(const Quaternion& quaternion) {
   return {quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};
@@ -56,6 +108,13 @@ constexpr Quaternion positive_scalar(const Quaternion& quaternion) {
   }
 
   return {-quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};
+}
+
+// Assumes quaternion maps body-frame vectors into the parent frame.
+constexpr Quaternion derivative_from_body_rate(const Quaternion& quaternion,
+                                               const Vector3& omega_rps) {
+  return 0.5 * quaternion *
+         Quaternion{0.0, omega_rps.x, omega_rps.y, omega_rps.z};
 }
 
 constexpr Vector3 rotate(const Quaternion& quaternion, const Vector3& vector) {
