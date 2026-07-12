@@ -7,9 +7,9 @@ namespace sixsim::sim {
 
 namespace detail {
 
-inline RigidBodyState advance(const RigidBodyState& state,
-                              const RigidBodyDerivative& derivative,
-                              double dt_s) {
+inline RigidBodyState advance_rk4_state(const RigidBodyState& state,
+                                        const RigidBodyDerivative& derivative,
+                                        double dt_s) {
   return {
       state.position_ned_m + derivative.position_ned_derivative_mps * dt_s,
       state.velocity_body_mps + derivative.velocity_body_derivative_mps2 * dt_s,
@@ -48,13 +48,14 @@ RigidBodyState integrate_rk4(const RigidBodyState& state,
                              DerivativeFunction derivative_function) {
   const RigidBodyDerivative k1 = derivative_function(state);
   const RigidBodyDerivative k2 =
-      derivative_function(detail::advance(state, k1, 0.5 * dt_s));
+      derivative_function(detail::advance_rk4_state(state, k1, 0.5 * dt_s));
   const RigidBodyDerivative k3 =
-      derivative_function(detail::advance(state, k2, 0.5 * dt_s));
+      derivative_function(detail::advance_rk4_state(state, k2, 0.5 * dt_s));
   const RigidBodyDerivative k4 =
-      derivative_function(detail::advance(state, k3, dt_s));
+      derivative_function(detail::advance_rk4_state(state, k3, dt_s));
 
-  return detail::advance(state, detail::weighted_sum(k1, k2, k3, k4), dt_s);
+  return detail::advance_rk4_state(
+      state, detail::weighted_sum(k1, k2, k3, k4), dt_s);
 }
 
 inline RigidBodyState integrate_rigid_body_rk4(
