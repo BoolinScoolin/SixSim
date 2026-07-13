@@ -7,7 +7,7 @@
 namespace sixsim::math {
 
 struct Quaternion {
-  double w{};
+  double w{1.0};
   double x{};
   double y{};
   double z{};

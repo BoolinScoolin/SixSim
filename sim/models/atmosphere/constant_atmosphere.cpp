@@ -1,4 +1,4 @@
-#include "constant_atmosphere.hpp"
+#include "sim/models/atmosphere/constant_atmosphere.hpp"
 
 namespace sixsim::sim {
 

@@ -1,4 +1,4 @@
-#include "constant_wind.hpp"
+#include "sim/models/wind/constant_wind.hpp"
 
 namespace sixsim::sim {
 

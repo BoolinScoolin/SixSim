@@ -1,4 +1,4 @@
-#include "constant_gravity.hpp"
+#include "sim/models/gravity/constant_gravity.hpp"
 
 namespace sixsim::sim {
 
