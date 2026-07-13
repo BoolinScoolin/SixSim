@@ -11,7 +11,7 @@ namespace sixsim::sim {
 struct RigidBodyDerivative {
   math::Vector3 position_ned_derivative_mps{};
   math::Vector3 velocity_body_derivative_mps2{};
-  math::Quaternion q_body2ned_derivative{};
+  math::Quaternion q_body2ned_derivative{0.0, 0.0, 0.0, 0.0};
   math::Vector3 omega_body_derivative_rps2{};
 };
 
