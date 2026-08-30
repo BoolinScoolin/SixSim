@@ -2,11 +2,17 @@
 
 #include "sixsim/math/quaternion.hpp"
 #include "sixsim/math/vector3.hpp"
-#include "sixsim/sim/force_moment.hpp"
-#include "sixsim/sim/mass_properties.hpp"
-#include "sixsim/sim/rigid_body_state.hpp"
+#include "sixsim/sim/models/gravity.hpp"
+#include "sixsim/sim/sim_general.hpp"
 
 namespace sixsim::sim {
+
+struct RigidBodyState {
+  math::Vector3 position_ned_m{};
+  math::Vector3 velocity_body_mps{};
+  math::Quaternion q_body2ned{};
+  math::Vector3 omega_body_rps{};
+};
 
 struct RigidBodyDerivative {
   math::Vector3 position_ned_derivative_mps{};
@@ -15,22 +21,54 @@ struct RigidBodyDerivative {
   math::Vector3 omega_body_derivative_rps2{};
 };
 
+inline RigidBodyState normalize_rigid_body_state(RigidBodyState state) {
+  state.q_body2ned = math::positive_scalar(math::normalized(state.q_body2ned));
+  return state;
+}
+
+inline RigidBodyState post_step_rigid_body(RigidBodyState state) {
+  return normalize_rigid_body_state(state);
+}
+
+inline RigidBodyDerivative operator+(const RigidBodyDerivative& lhs,
+                                     const RigidBodyDerivative& rhs) {
+  return {
+      lhs.position_ned_derivative_mps + rhs.position_ned_derivative_mps,
+      lhs.velocity_body_derivative_mps2 + rhs.velocity_body_derivative_mps2,
+      lhs.q_body2ned_derivative + rhs.q_body2ned_derivative,
+      lhs.omega_body_derivative_rps2 + rhs.omega_body_derivative_rps2,
+  };
+}
+
+inline RigidBodyDerivative operator*(const RigidBodyDerivative& derivative,
+                                     double scalar) {
+  return {
+      derivative.position_ned_derivative_mps * scalar,
+      derivative.velocity_body_derivative_mps2 * scalar,
+      derivative.q_body2ned_derivative * scalar,
+      derivative.omega_body_derivative_rps2 * scalar,
+  };
+}
+
+inline RigidBodyDerivative operator*(double scalar,
+                                     const RigidBodyDerivative& derivative) {
+  return derivative * scalar;
+}
+
+inline RigidBodyState operator+(const RigidBodyState& state,
+                                const RigidBodyDerivative& derivative) {
+  return {
+      state.position_ned_m + derivative.position_ned_derivative_mps,
+      state.velocity_body_mps + derivative.velocity_body_derivative_mps2,
+      state.q_body2ned + derivative.q_body2ned_derivative,
+      state.omega_body_rps + derivative.omega_body_derivative_rps2,
+  };
+}
+
 inline RigidBodyDerivative combine_derivatives(
     const RigidBodyDerivative& kinematic,
     const RigidBodyDerivative& dynamic) {
-  RigidBodyDerivative derivative{};
-  derivative.position_ned_derivative_mps =
-      kinematic.position_ned_derivative_mps +
-      dynamic.position_ned_derivative_mps;
-  derivative.velocity_body_derivative_mps2 =
-      kinematic.velocity_body_derivative_mps2 +
-      dynamic.velocity_body_derivative_mps2;
-  derivative.q_body2ned_derivative =
-      kinematic.q_body2ned_derivative + dynamic.q_body2ned_derivative;
-  derivative.omega_body_derivative_rps2 =
-      kinematic.omega_body_derivative_rps2 +
-      dynamic.omega_body_derivative_rps2;
-  return derivative;
+  return kinematic + dynamic;
 }
 
 inline RigidBodyDerivative kinematic_derivative(const RigidBodyState& state) {

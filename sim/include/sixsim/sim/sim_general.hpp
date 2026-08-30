@@ -1,8 +1,43 @@
 #pragma once
 
 #include "sixsim/math/vector3.hpp"
+#include "sixsim/sim/models/actuator.hpp"
 
 namespace sixsim::sim {
+
+class AerodynamicsModel;
+class AtmosphereModel;
+class GravityModel;
+class PropulsionModel;
+class WindModel;
+
+struct SimTime {
+  double simtime_s{};
+};
+
+struct SimulationConfig {
+  double dt_s{};
+  double stop_simulation_time_s{};
+};
+
+struct MassProperties {
+  double mass_kg{};
+  math::Vector3 inertia_body_kgm2{};
+};
+
+struct VehicleContext {
+  const MassProperties& mass_properties;
+  const ActuatorState& actuator;
+};
+
+struct AuxiliaryContext {
+  const VehicleContext& vehicle;
+  const AtmosphereModel& atmosphere_model;
+  const WindModel& wind_model;
+  const GravityModel& gravity_model;
+  const AerodynamicsModel& aerodynamics_model;
+  const PropulsionModel& propulsion_model;
+};
 
 struct ForceMoment {
   math::Vector3 force_body_n{};

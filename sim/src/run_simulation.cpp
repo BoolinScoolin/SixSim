@@ -1,23 +1,17 @@
 #include "sixsim/sim/run_simulation.hpp"
 
-#include "sixsim/sim/auxiliary_context.hpp"
-#include "sixsim/sim/force_moment.hpp"
-#include "sixsim/sim/mass_properties.hpp"
-#include "sixsim/sim/rigid_body_propagation.hpp"
-#include "sixsim/sim/rigid_body_state.hpp"
-#include "sixsim/sim/simulation_config.hpp"
-#include "sixsim/sim/simulation_event.hpp"
-#include "sixsim/sim/sim_time.hpp"
-#include "sixsim/sim/vehicle_context.hpp"
+#include "sixsim/sim/rk4.hpp"
+#include "sixsim/sim/sim_general.hpp"
 
 #include "sim/models/aerodynamics/zero_aerodynamics.hpp"
 #include "sim/models/atmosphere/constant_atmosphere.hpp"
-#include "sim/models/dynamics/rigid_body_dynamics.hpp"
+#include "sim/models/dynamics/rigid_body.hpp"
 #include "sim/models/gravity/constant_gravity.hpp"
 #include "sim/models/propulsion/zero_propulsion.hpp"
 #include "sim/models/wind/constant_wind.hpp"
 
 #include <iostream>
+#include <iomanip> // Required for setprecision
 
 namespace sixsim::sim {
 
@@ -30,8 +24,23 @@ void run_simulation() {
   SimTime time{};
   RigidBodyState state{};
   state.position_ned_m = {0.0, 0.0, 0.0};
-  state.velocity_body_mps = {0.0, 0.0, 0.0};
+  state.velocity_body_mps = {0.0, 1.0, 0.0};
   state.omega_body_rps = {0.0, 0.0, 0.0};
+  state.q_body2ned = {1.0, 0.0, 0.0, 0.0};
+
+  const auto advance_state_rk4 =
+      [](const auto& current_state,
+         double dt_s,
+         const auto& derivative_function,
+         const auto& post_step_routine) {
+        return step_rk4(
+            current_state,
+            dt_s,
+            derivative_function,
+            post_step_routine);
+      };
+
+  const auto post_step_routine = post_step_rigid_body;
 
   AtmosphereState atmosphere_state{};
   atmosphere_state.density_kg_per_m3 = 1.225;
@@ -55,6 +64,12 @@ void run_simulation() {
   mass_properties.mass_kg = 10.0;
   mass_properties.inertia_body_kgm2 = {1.0, 1.0, 1.0};
 
+  const auto compute_derivative =
+      [&](const auto& current_state, const ForceMoment& force_moment) {
+        return rigid_body_derivative(
+            current_state, force_moment, mass_properties);
+      };
+
   const VehicleContext vehicle{
       mass_properties,
       actuator,
@@ -69,41 +84,53 @@ void run_simulation() {
       propulsion_model,
   };
 
-  while (!events.stop_simulation.triggered) {
-    evaluate_simulation_events(time, state, config, events);
-    if (events.stop_simulation.triggered) {
-      break;
-    }
+  const auto step_state =
+      [&](const SimTime& current_time, const auto& current_state, double dt_s) {
+        const AtmosphereState atmosphere =
+            auxiliary.atmosphere_model.evaluate(current_time,
+                                                current_state.position_ned_m);
+        const WindState wind =
+            auxiliary.wind_model.evaluate(current_time,
+                                          current_state.position_ned_m);
+        const GravityState gravity =
+            auxiliary.gravity_model.evaluate(current_time,
+                                             current_state.position_ned_m);
 
-    const AtmosphereState atmosphere =
-        auxiliary.atmosphere_model.evaluate(time, state.position_ned_m);
-    const WindState wind =
-        auxiliary.wind_model.evaluate(time, state.position_ned_m);
-    const GravityState gravity =
-        auxiliary.gravity_model.evaluate(time, state.position_ned_m);
+        const ForceMoment gravity_force_moment =
+            gravity_force_moment_body(gravity,
+                                      auxiliary.vehicle.mass_properties,
+                                      current_state.q_body2ned);
+        const ForceMoment aerodynamics_force_moment =
+            auxiliary.aerodynamics_model.evaluate(current_state,
+                                                  atmosphere,
+                                                  wind,
+                                                  auxiliary.vehicle);
+        const ForceMoment propulsion_force_moment =
+            auxiliary.propulsion_model.evaluate(current_time,
+                                                current_state,
+                                                auxiliary.vehicle);
 
-    const ForceMoment gravity_force_moment =
-        gravity_force_moment_body(gravity, auxiliary.vehicle.mass_properties,
-                                  state.q_body2ned);
-    const ForceMoment aerodynamics_force_moment =
-        auxiliary.aerodynamics_model.evaluate(state, atmosphere, wind,
-                                              auxiliary.vehicle);
-    const ForceMoment propulsion_force_moment =
-        auxiliary.propulsion_model.evaluate(time, state, auxiliary.vehicle);
-    const ForceMoment force_moment =
-        combine_force_moment(gravity_force_moment, aerodynamics_force_moment,
-                             propulsion_force_moment);
+        const ForceMoment force_moment =
+            combine_force_moment(gravity_force_moment,
+                                 aerodynamics_force_moment,
+                                 propulsion_force_moment);
 
-    state = propagate_rigid_body(state, force_moment,
-                                 auxiliary.vehicle.mass_properties,
-                                 config.dt_s);
-    time.simtime_s += config.dt_s;
-  }
+        return advance_state_rk4(
+            current_state,
+            dt_s,
+            [&](const auto& rk4_state) {
+              return compute_derivative(rk4_state, force_moment);
+            },
+            post_step_routine);
+      };
+
+  state = run_loop(config, step_state, state, events, time);
 
   std::cout << "final simtime: " << time.simtime_s << '\n';
   std::cout << "stop simulation trigger time: "
             << events.stop_simulation.trigger_time_s << '\n';
-  std::cout << "final position NED z: " << state.position_ned_m.z << '\n';
+  std::cout << "final position NED z: " << std::fixed << std::setprecision(9) << state.position_ned_m.z << '\n';
+  std::cout << "final velocity body y: " << std::fixed << std::setprecision(9) << state.velocity_body_mps.y << '\n';
 }
 
 }  // namespace sixsim::sim

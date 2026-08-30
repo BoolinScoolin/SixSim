@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sixsim/math/vector3.hpp"
-#include "sixsim/sim/sim_time.hpp"
+#include "sixsim/sim/sim_general.hpp"
 
 namespace sixsim::sim {
 

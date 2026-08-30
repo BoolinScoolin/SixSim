@@ -1,10 +1,10 @@
 #pragma once
 
-#include "sixsim/sim/force_moment.hpp"
 #include "sixsim/sim/models/atmosphere.hpp"
 #include "sixsim/sim/models/wind.hpp"
-#include "sixsim/sim/rigid_body_state.hpp"
-#include "sixsim/sim/vehicle_context.hpp"
+#include "sixsim/sim/sim_general.hpp"
+
+#include "sim/models/dynamics/rigid_body.hpp"
 
 namespace sixsim::sim {
 

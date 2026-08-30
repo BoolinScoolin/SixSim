@@ -1,8 +1,7 @@
 #pragma once
 
-#include "sixsim/sim/rigid_body_state.hpp"
-#include "sixsim/sim/simulation_config.hpp"
-#include "sixsim/sim/sim_time.hpp"
+#include "sixsim/math/comparison.hpp"
+#include "sixsim/sim/sim_general.hpp"
 
 namespace sixsim::sim {
 
@@ -16,9 +15,18 @@ struct SimulationEvents {
   SimulationEventFlag stop_simulation{};
 };
 
+template <typename State>
 void evaluate_simulation_events(const SimTime& time,
-                                const RigidBodyState& state,
+                                const State& state,
                                 const SimulationConfig& config,
-                                SimulationEvents& events);
+                                SimulationEvents& events) {
+  (void)state;
+
+  if (!events.stop_simulation.triggered &&
+      math::compare_geq(time.simtime_s, config.stop_simulation_time_s)) {
+    events.stop_simulation.triggered = true;
+    events.stop_simulation.trigger_time_s = time.simtime_s;
+  }
+}
 
 }  // namespace sixsim::sim
