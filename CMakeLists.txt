@@ -55,6 +55,7 @@ add_generated_simulation(
 add_executable(rigid_body_smoke
   apps/smoke/rigid_body_smoke.cpp
   ${SIXSIM_SMOKE_RUN_SIMULATION}
+  sim/src/logging.cpp
   sim/models/aerodynamics/simple_aerodynamics_model_v1.cpp
   sim/models/aerodynamics/zero_aerodynamics.cpp
   sim/models/atmosphere/constant_atmosphere.cpp
@@ -75,6 +76,7 @@ target_include_directories(rigid_body_smoke PRIVATE
 add_executable(matlab_compare_smoke
   apps/smoke/rigid_body_smoke.cpp
   ${SIXSIM_MATLAB_COMPARE_RUN_SIMULATION}
+  sim/src/logging.cpp
   sim/models/aerodynamics/simple_aerodynamics_model_v1.cpp
   sim/models/aerodynamics/zero_aerodynamics.cpp
   sim/models/atmosphere/constant_atmosphere.cpp

@@ -102,6 +102,10 @@ def cpp_vector(values):
     return "{" + ", ".join(cpp_number(value) for value in values) + "}"
 
 
+def cpp_string(value):
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def model(type_name, parse, include, construct):
     return {
         "type": type_name,
@@ -487,6 +491,10 @@ def load_scenario(path):
 
 def parse_scenario(scenario):
     simulation = require_mapping(scenario.get("simulation"), "simulation")
+    logging_rate_hz = require_number(simulation, "logging_rate_hz", "simulation")
+    if logging_rate_hz <= 0.0:
+        raise ValueError("simulation.logging_rate_hz must be greater than zero")
+
     initial_state = require_mapping(scenario.get("initial_state"), "initial_state")
     rigid_body = require_mapping(
         initial_state.get("rigid_body"), "initial_state.rigid_body"
@@ -507,6 +515,7 @@ def parse_scenario(scenario):
 
     return {
         "dt_s": require_number(simulation, "dt_s", "simulation"),
+        "logging_rate_hz": logging_rate_hz,
         "stop_simulation_time_s": require_number(
             simulation, "stop_simulation_time_s", "simulation"
         ),
@@ -549,17 +558,43 @@ def render_run_simulation(config):
     return f"""#include "sixsim/sim/run_simulation.hpp"
 
 {render_integrator_include(config["integrator"])}
+#include "sixsim/sim/logging.hpp"
 #include "sixsim/sim/sim_general.hpp"
 
 #include "sim/models/dynamics/rigid_body.hpp"
 {render_model_includes(config)}
 
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 
 namespace sixsim::sim {{
 
-void run_simulation() {{
+void log_truth_sample(LogSink& log,
+                      const SimTime& time,
+                      const RigidBodyState& state) {{
+  const LogField fields[] = {{
+      {{"position_ned_m.x", state.position_ned_m.x}},
+      {{"position_ned_m.y", state.position_ned_m.y}},
+      {{"position_ned_m.z", state.position_ned_m.z}},
+      {{"velocity_body_mps.x", state.velocity_body_mps.x}},
+      {{"velocity_body_mps.y", state.velocity_body_mps.y}},
+      {{"velocity_body_mps.z", state.velocity_body_mps.z}},
+      {{"q_body2ned.w", state.q_body2ned.w}},
+      {{"q_body2ned.x", state.q_body2ned.x}},
+      {{"q_body2ned.y", state.q_body2ned.y}},
+      {{"q_body2ned.z", state.q_body2ned.z}},
+      {{"omega_body_rps.x", state.omega_body_rps.x}},
+      {{"omega_body_rps.y", state.omega_body_rps.y}},
+      {{"omega_body_rps.z", state.omega_body_rps.z}},
+  }};
+
+  log.log_sample("truth", time, fields);
+}}
+
+void run_simulation(const std::filesystem::path& output_directory) {{
   SimulationConfig config{{}};
   config.dt_s = {cpp_number(config["dt_s"])};
   config.stop_simulation_time_s = {cpp_number(config["stop_simulation_time_s"])};
@@ -579,6 +614,52 @@ void run_simulation() {{
 {render_model_constructions(config)}
 
   const ActuatorState actuator{{}};
+  const std::filesystem::path selected_run_directory =
+      output_directory.empty()
+          ? std::filesystem::path{{{cpp_string(config["run_directory"])}}}
+          : output_directory;
+  const std::filesystem::path run_directory =
+      std::filesystem::absolute(selected_run_directory).lexically_normal();
+  const std::filesystem::path current_directory =
+      std::filesystem::current_path().lexically_normal();
+  if (run_directory == run_directory.root_path() ||
+      run_directory == current_directory) {{
+    throw std::runtime_error("refusing to replace unsafe run directory: " +
+                             run_directory.string());
+  }}
+  const std::filesystem::path run_marker = run_directory / ".sixsim-run";
+  if (std::filesystem::exists(run_directory)) {{
+    std::ifstream marker_input(run_marker);
+    std::string marker_value;
+    std::getline(marker_input, marker_value);
+    if (!marker_input || marker_value != "SixSim run directory" ||
+        marker_input.peek() != std::char_traits<char>::eof()) {{
+      throw std::runtime_error(
+          "refusing to replace unmarked run directory: " +
+          run_directory.string());
+    }}
+  }}
+  std::filesystem::remove_all(run_directory);
+  const std::filesystem::path config_directory = run_directory / "configs";
+  const std::filesystem::path source_scenario_path =
+      {cpp_string(config["scenario_path"])};
+  const std::filesystem::path copied_scenario_path =
+      config_directory / "scenario.yaml";
+  std::filesystem::create_directories(config_directory);
+  std::ofstream marker_output(run_marker);
+  marker_output << "SixSim run directory\\n";
+  if (!marker_output) {{
+    throw std::runtime_error("failed to write run directory marker: " +
+                             run_marker.string());
+  }}
+  std::filesystem::copy_file(
+      source_scenario_path,
+      copied_scenario_path,
+      std::filesystem::copy_options::overwrite_existing);
+  LogSink log{{run_directory}};
+  const double logging_period_s =
+      1.0 / {cpp_number(config["logging_rate_hz"])};
+  double next_log_time_s = 0.0;
 
   const double unloaded_mass_kg = {cpp_number(config["unloaded_mass_kg"])};
 
@@ -609,6 +690,13 @@ void run_simulation() {{
 
   const auto step_state =
       [&](const SimTime& current_time, const auto& current_state, double dt_s) {{
+        if (current_time.simtime_s >= next_log_time_s) {{
+          log_truth_sample(log, current_time, current_state);
+          do {{
+            next_log_time_s += logging_period_s;
+          }} while (next_log_time_s <= current_time.simtime_s);
+        }}
+
         const AtmosphereState atmosphere =
             auxiliary.atmosphere_model.evaluate(current_time,
                                                 current_state.position_ned_m);
@@ -650,6 +738,19 @@ void run_simulation() {{
 
   state = run_loop(config, step_state, state, events, time);
 
+  std::ofstream manifest(run_directory / "manifest.yaml");
+  if (!manifest) {{
+    throw std::runtime_error("failed to open run manifest");
+  }}
+  manifest << "scenario:\\n"
+           << "  original: " << std::quoted(source_scenario_path.string()) << '\\n'
+           << "  copied: \\"configs/scenario.yaml\\"\\n"
+           << "raw:\\n"
+           << "  truth: \\"raw/truth.csv\\"\\n";
+  if (!manifest) {{
+    throw std::runtime_error("failed to write run manifest");
+  }}
+
   std::cout << "final simtime: " << time.simtime_s << '\\n';
   std::cout << "stop simulation trigger time: "
             << events.stop_simulation.trigger_time_s << '\\n';
@@ -678,6 +779,8 @@ def main():
     try:
         scenario = load_scenario(args.scenario)
         config = parse_scenario(scenario)
+        config["scenario_path"] = str(args.scenario.resolve())
+        config["run_directory"] = f"runs/{args.scenario.stem}"
     except OSError as error:
         print(f"Failed to read {args.scenario}: {error}", file=sys.stderr)
         return 1

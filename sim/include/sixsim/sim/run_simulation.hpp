@@ -3,6 +3,8 @@
 #include "sixsim/sim/sim_general.hpp"
 #include "sixsim/sim/simulation_event.hpp"
 
+#include <filesystem>
+
 namespace sixsim::sim {
 
 template <typename State, typename StepFunction>
@@ -24,6 +26,6 @@ State run_loop(const SimulationConfig& config,
   return state;
 }
 
-void run_simulation();
+void run_simulation(const std::filesystem::path& output_directory = {});
 
 }  // namespace sixsim::sim
