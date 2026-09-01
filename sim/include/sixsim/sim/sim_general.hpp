@@ -26,12 +26,13 @@ struct MassProperties {
 };
 
 struct VehicleContext {
-  const MassProperties& mass_properties;
+  MassProperties& mass_properties;
+  double unloaded_mass_kg{};
   const ActuatorState& actuator;
 };
 
 struct AuxiliaryContext {
-  const VehicleContext& vehicle;
+  VehicleContext& vehicle;
   const AtmosphereModel& atmosphere_model;
   const WindModel& wind_model;
   const GravityModel& gravity_model;

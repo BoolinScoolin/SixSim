@@ -12,7 +12,7 @@ class PropulsionModel {
 
   virtual ForceMoment evaluate(const SimTime& time,
                                const RigidBodyState& state,
-                               const VehicleContext& vehicle) const = 0;
+                               VehicleContext& vehicle) const = 0;
 };
 
 }  // namespace sixsim::sim

@@ -1,0 +1,43 @@
+simulation:
+  dt_s: 0.01
+  stop_simulation_time_s: 17.9
+  integrator: rk4
+
+initial_state:
+  rigid_body:
+    position_ned_m: [0.0, 0.0, 0.0]
+    velocity_body_mps: [0.0, 0.0, 0.0]
+    omega_body_rps: [0.0, 0.0, 0.0]
+    azimuth_rad: 0.0
+    elevation_rad: 1.4835298641951802
+    roll_rad: 0.0
+
+models:
+  atmosphere:
+    type: constant
+    density_kg_per_m3: 1.225
+    pressure_pa: 101325.0
+    temperature_k: 288.15
+    speed_of_sound_m_per_s: 340.3
+  wind:
+    type: constant
+    wind_ned_mps: [0.0, 0.0, 0.0]
+  gravity:
+    type: constant
+    gravity_mps2: 9.80665
+  aerodynamics:
+    type: simple_aerodynamics_model_v1
+    reference_area_m2: 0.0192897963510147
+    drag_coefficient: 0.476
+    fin_count: 3
+    fin_planform_area_m2: 0.02524446564
+    fin_normal_force_slope_per_rad: 2.11
+    nose_normal_force_slope_per_rad: 2.0
+  propulsion:
+    type: hardcoded_thrust_curve
+    thrust_direction_body: [1.0, 0.0, 0.0]
+
+vehicle:
+  mass_properties:
+    unloaded_mass_kg: 22.452804
+    inertia_body_kgm2: [0.098, 17.3574, 17.3574]
