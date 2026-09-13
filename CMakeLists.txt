@@ -28,12 +28,12 @@ function(add_generated_scenario config_header scenario)
     COMMAND ${CMAKE_COMMAND} -E env
             "PYTHONPATH=${SIXSIM_CODEGEN_PYTHONPATH}"
             ${Python3_EXECUTABLE}
-            ${CMAKE_SOURCE_DIR}/tools/codegen/generate_run_simulation.py
+            ${CMAKE_SOURCE_DIR}/tools/codegen/generate_scenario_config.py
             ${scenario}
             ${config_header}
     DEPENDS
       ${scenario}
-      ${CMAKE_SOURCE_DIR}/tools/codegen/generate_run_simulation.py
+      ${CMAKE_SOURCE_DIR}/tools/codegen/generate_scenario_config.py
       ${CMAKE_SOURCE_DIR}/tools/python/sixsim_gnc/attitude.py
       ${CMAKE_SOURCE_DIR}/tools/python/sixsim_gnc/__init__.py
     VERBATIM

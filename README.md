@@ -70,4 +70,4 @@ falls between steps, it is written on the first step at or after that time.
 The generator keeps model and integrator support organized by category. To
 register a new supported type, add its parser, C++ include renderer, C++
 construction or advance-state renderer, and table entry in that category's
-section of `tools/codegen/generate_run_simulation.py`.
+section of `tools/codegen/generate_scenario_config.py`.

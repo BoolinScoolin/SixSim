@@ -31,7 +31,7 @@ except ModuleNotFoundError:
 # Generate scenario_config.hpp manually:
 #
 #   python -m pip install -r tools/codegen/requirements.txt
-#   python tools/codegen/generate_run_simulation.py configs/scenarios/test/smoke.yaml build/generated/smoke/scenario_config.hpp
+#   python tools/codegen/generate_scenario_config.py configs/scenarios/test/smoke.yaml build/generated/smoke/scenario_config.hpp
 #
 # Generated C++ lives under build/ and is not committed.
 #
