@@ -4,3 +4,23 @@ __pycache__/
 *.py[cod]
 runs/*
 !runs/.gitkeep
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# PlatformIO
+.pio/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating systems
+.DS_Store
+Thumbs.db
