@@ -1,9 +1,12 @@
 #include "sixsim/sim/logging.hpp"
 
+#include "sim/models/dynamics/rigid_body.hpp"
+
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace sixsim::sim {
 
@@ -102,6 +105,45 @@ void LogSink::log_sample(const char* stream,
   }
 
   write_row(path, time, fields);
+}
+
+void log_truth_sample(LogSink& log,
+                      const SimTime& time,
+                      const RigidBodyState& state) {
+  const LogField fields[] = {
+      {"position_ned_m.x", state.position_ned_m.x},
+      {"position_ned_m.y", state.position_ned_m.y},
+      {"position_ned_m.z", state.position_ned_m.z},
+      {"velocity_body_mps.x", state.velocity_body_mps.x},
+      {"velocity_body_mps.y", state.velocity_body_mps.y},
+      {"velocity_body_mps.z", state.velocity_body_mps.z},
+      {"q_body2ned.w", state.q_body2ned.w},
+      {"q_body2ned.x", state.q_body2ned.x},
+      {"q_body2ned.y", state.q_body2ned.y},
+      {"q_body2ned.z", state.q_body2ned.z},
+      {"omega_body_rps.x", state.omega_body_rps.x},
+      {"omega_body_rps.y", state.omega_body_rps.y},
+      {"omega_body_rps.z", state.omega_body_rps.z},
+  };
+
+  log.log_sample("truth", time, fields);
+}
+
+SimulationLogger::SimulationLogger(std::filesystem::path run_directory,
+                                   double logging_rate_hz)
+    : log_(std::move(run_directory)),
+      logging_period_s_(1.0 / logging_rate_hz) {}
+
+void SimulationLogger::log_truth(const SimTime& time,
+                                 const RigidBodyState& state) {
+  if (time.simtime_s < next_log_time_s_) {
+    return;
+  }
+
+  log_truth_sample(log_, time, state);
+  do {
+    next_log_time_s_ += logging_period_s_;
+  } while (next_log_time_s_ <= time.simtime_s);
 }
 
 }  // namespace sixsim::sim

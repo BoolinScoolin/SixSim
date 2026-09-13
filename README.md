@@ -53,8 +53,9 @@ to provide a complete run directory instead:
 
 ## YAML Code Generation
 
-`run_simulation.cpp` files are generated from YAML scenarios during the CMake
-build. Generated C++ under `build/generated/` is not committed.
+`scenario_config.hpp` files are generated from YAML scenarios during the CMake
+build. The checked-in simulation runner includes the generated header for its
+target. Generated C++ under `build/generated/` is not committed.
 
 Each scenario must specify a positive logging rate under `simulation`:
 

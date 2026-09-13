@@ -28,10 +28,10 @@ except ModuleNotFoundError:
     raise SystemExit(1)
 
 
-# Generate run_simulation.cpp manually before configuring or building:
+# Generate scenario_config.hpp manually:
 #
 #   python -m pip install -r tools/codegen/requirements.txt
-#   python tools/codegen/generate_run_simulation.py configs/scenarios/test/smoke.yaml build/generated/run_simulation.cpp
+#   python tools/codegen/generate_run_simulation.py configs/scenarios/test/smoke.yaml build/generated/smoke/scenario_config.hpp
 #
 # Generated C++ lives under build/ and is not committed.
 #
@@ -195,17 +195,14 @@ def include_rk4_integrator(_parsed):
 
 
 def construct_rk4_integrator(_parsed):
-    return """  const auto advance_state_rk4 =
-      [](const auto& current_state,
-         double dt_s,
-         const auto& derivative_function,
-         const auto& post_step_routine) {
-        return step_rk4(
-            current_state,
-            dt_s,
-            derivative_function,
-            post_step_routine);
-      };"""
+    return """inline auto advance_state(
+    const auto& current_state,
+    double dt_s,
+    const auto& derivative_function,
+    const auto& post_step_routine) {
+  return step_rk4(
+      current_state, dt_s, derivative_function, post_step_routine);
+}"""
 
 
 INTEGRATORS["rk4"] = integrator(
@@ -264,12 +261,13 @@ def include_constant_atmosphere(_parsed):
 
 
 def construct_constant_atmosphere(parsed):
-    return f"""  AtmosphereState atmosphere_state{{}};
-  atmosphere_state.density_kg_per_m3 = {cpp_number(parsed["density_kg_per_m3"])};
-  atmosphere_state.pressure_pa = {cpp_number(parsed["pressure_pa"])};
-  atmosphere_state.temperature_k = {cpp_number(parsed["temperature_k"])};
-  atmosphere_state.speed_of_sound_m_per_s = {cpp_number(parsed["speed_of_sound_m_per_s"])};
-  const ConstantAtmosphere atmosphere_model{{atmosphere_state}};"""
+    return f"""  scenario.environment.atmosphere =
+      std::make_unique<ConstantAtmosphere>(AtmosphereState{{
+          {cpp_number(parsed["density_kg_per_m3"])},
+          {cpp_number(parsed["pressure_pa"])},
+          {cpp_number(parsed["temperature_k"])},
+          {cpp_number(parsed["speed_of_sound_m_per_s"])},
+      }});"""
 
 
 ATMOSPHERE_MODELS["constant"] = model(
@@ -299,8 +297,9 @@ def include_constant_wind(_parsed):
 
 
 def construct_constant_wind(parsed):
-    return f"""  const math::Vector3 wind_ned_mps{cpp_vector(parsed["wind_ned_mps"])};
-  const ConstantWind wind_model{{wind_ned_mps}};"""
+    return f"""  scenario.environment.wind =
+      std::make_unique<ConstantWind>(
+          math::Vector3{cpp_vector(parsed["wind_ned_mps"])});"""
 
 
 WIND_MODELS["constant"] = model(
@@ -330,8 +329,9 @@ def include_constant_gravity(_parsed):
 
 
 def construct_constant_gravity(parsed):
-    return f"""  const double gravity_mps2 = {cpp_number(parsed["gravity_mps2"])};
-  const ConstantGravity gravity_model{{gravity_mps2}};"""
+    return f"""  scenario.environment.gravity =
+      std::make_unique<ConstantGravity>(
+          {cpp_number(parsed["gravity_mps2"])});"""
 
 
 GRAVITY_MODELS["constant"] = model(
@@ -359,7 +359,10 @@ def include_zero_aerodynamics(_parsed):
 
 
 def construct_zero_aerodynamics(_parsed):
-    return "  const ZeroAerodynamics aerodynamics_model{};"
+    return (
+        "  scenario.vehicle.aerodynamics = "
+        "std::make_unique<ZeroAerodynamics>();"
+    )
 
 
 AERODYNAMICS_MODELS["zero"] = model(
@@ -398,15 +401,16 @@ def include_simple_aerodynamics_model_v1(_parsed):
 
 
 def construct_simple_aerodynamics_model_v1(parsed):
-    return f"""  const SimpleAerodynamicsModelV1Params aerodynamics_params{{
-      {cpp_number(parsed["reference_area_m2"])},
-      {cpp_number(parsed["drag_coefficient"])},
-      {parsed["fin_count"]},
-      {cpp_number(parsed["fin_planform_area_m2"])},
-      {cpp_number(parsed["fin_normal_force_slope_per_rad"])},
-      {cpp_number(parsed["nose_normal_force_slope_per_rad"])},
-  }};
-  const SimpleAerodynamicsModelV1 aerodynamics_model{{aerodynamics_params}};"""
+    return f"""  scenario.vehicle.aerodynamics =
+      std::make_unique<SimpleAerodynamicsModelV1>(
+          SimpleAerodynamicsModelV1Params{{
+              {cpp_number(parsed["reference_area_m2"])},
+              {cpp_number(parsed["drag_coefficient"])},
+              {parsed["fin_count"]},
+              {cpp_number(parsed["fin_planform_area_m2"])},
+              {cpp_number(parsed["fin_normal_force_slope_per_rad"])},
+              {cpp_number(parsed["nose_normal_force_slope_per_rad"])},
+          }});"""
 
 
 AERODYNAMICS_MODELS["simple_aerodynamics_model_v1"] = model(
@@ -438,10 +442,9 @@ def include_hardcoded_thrust_curve_propulsion(_parsed):
 
 
 def construct_hardcoded_thrust_curve_propulsion(parsed):
-    return (
-        "  const HardcodedThrustCurvePropulsion propulsion_model"
-        f"{{{cpp_vector(parsed['thrust_direction_body'])}}};"
-    )
+    return f"""  scenario.vehicle.propulsion =
+      std::make_unique<HardcodedThrustCurvePropulsion>(
+          math::Vector3{cpp_vector(parsed["thrust_direction_body"])});"""
 
 
 PROPULSION_MODELS["hardcoded_thrust_curve"] = model(
@@ -463,7 +466,10 @@ def include_zero_propulsion(_parsed):
 
 
 def construct_zero_propulsion(_parsed):
-    return "  const ZeroPropulsion propulsion_model{};"
+    return (
+        "  scenario.vehicle.propulsion = "
+        "std::make_unique<ZeroPropulsion>();"
+    )
 
 
 PROPULSION_MODELS["zero"] = model(
@@ -554,214 +560,46 @@ def render_model_constructions(config):
     )
 
 
-def render_run_simulation(config):
-    return f"""#include "sixsim/sim/run_simulation.hpp"
+def render_scenario_config(config):
+    return f"""#pragma once
 
 {render_integrator_include(config["integrator"])}
-#include "sixsim/sim/logging.hpp"
-#include "sixsim/sim/sim_general.hpp"
+#include "sixsim/sim/scenario.hpp"
 
-#include "sim/models/dynamics/rigid_body.hpp"
 {render_model_includes(config)}
 
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <stdexcept>
-#include <string>
+#include <memory>
 
 namespace sixsim::sim {{
 
-void log_truth_sample(LogSink& log,
-                      const SimTime& time,
-                      const RigidBodyState& state) {{
-  const LogField fields[] = {{
-      {{"position_ned_m.x", state.position_ned_m.x}},
-      {{"position_ned_m.y", state.position_ned_m.y}},
-      {{"position_ned_m.z", state.position_ned_m.z}},
-      {{"velocity_body_mps.x", state.velocity_body_mps.x}},
-      {{"velocity_body_mps.y", state.velocity_body_mps.y}},
-      {{"velocity_body_mps.z", state.velocity_body_mps.z}},
-      {{"q_body2ned.w", state.q_body2ned.w}},
-      {{"q_body2ned.x", state.q_body2ned.x}},
-      {{"q_body2ned.y", state.q_body2ned.y}},
-      {{"q_body2ned.z", state.q_body2ned.z}},
-      {{"omega_body_rps.x", state.omega_body_rps.x}},
-      {{"omega_body_rps.y", state.omega_body_rps.y}},
-      {{"omega_body_rps.z", state.omega_body_rps.z}},
-  }};
-
-  log.log_sample("truth", time, fields);
-}}
-
-void run_simulation(const std::filesystem::path& output_directory) {{
-  SimulationConfig config{{}};
-  config.dt_s = {cpp_number(config["dt_s"])};
-  config.stop_simulation_time_s = {cpp_number(config["stop_simulation_time_s"])};
-
-  SimulationEvents events{{}};
-  SimTime time{{}};
-  RigidBodyState state{{}};
-  state.position_ned_m = {cpp_vector(config["position_ned_m"])};
-  state.velocity_body_mps = {cpp_vector(config["velocity_body_mps"])};
-  state.omega_body_rps = {cpp_vector(config["omega_body_rps"])};
-  state.q_body2ned = {cpp_vector(config["q_body2ned"])};
-
 {render_integrator_advance_state(config["integrator"])}
 
-  const auto post_step_routine = post_step_rigid_body;
+inline Scenario build_scenario() {{
+  Scenario scenario{{}};
+  scenario.simulation.dt_s = {cpp_number(config["dt_s"])};
+  scenario.simulation.stop_simulation_time_s =
+      {cpp_number(config["stop_simulation_time_s"])};
+  scenario.logging_rate_hz = {cpp_number(config["logging_rate_hz"])};
+  scenario.source_scenario_path = {cpp_string(config["scenario_path"])};
+  scenario.default_run_directory = {cpp_string(config["run_directory"])};
+  scenario.vehicle.state.position_ned_m =
+      {cpp_vector(config["position_ned_m"])};
+  scenario.vehicle.state.velocity_body_mps =
+      {cpp_vector(config["velocity_body_mps"])};
+  scenario.vehicle.state.omega_body_rps =
+      {cpp_vector(config["omega_body_rps"])};
+  scenario.vehicle.state.q_body2ned = {cpp_vector(config["q_body2ned"])};
+  scenario.vehicle.unloaded_mass_kg =
+      {cpp_number(config["unloaded_mass_kg"])};
+  scenario.vehicle.mass_properties.mass_kg =
+      scenario.vehicle.unloaded_mass_kg;
+  scenario.vehicle.mass_properties.inertia_body_kgm2 =
+      {cpp_vector(config["inertia_body_kgm2"])};
+  scenario.vehicle.actuator = ActuatorState{{}};
 
 {render_model_constructions(config)}
 
-  const ActuatorState actuator{{}};
-  const std::filesystem::path selected_run_directory =
-      output_directory.empty()
-          ? std::filesystem::path{{{cpp_string(config["run_directory"])}}}
-          : output_directory;
-  const std::filesystem::path run_directory =
-      std::filesystem::absolute(selected_run_directory).lexically_normal();
-  const std::filesystem::path current_directory =
-      std::filesystem::current_path().lexically_normal();
-  if (run_directory == run_directory.root_path() ||
-      run_directory == current_directory) {{
-    throw std::runtime_error("refusing to replace unsafe run directory: " +
-                             run_directory.string());
-  }}
-  const std::filesystem::path run_marker = run_directory / ".sixsim-run";
-  if (std::filesystem::exists(run_directory)) {{
-    std::ifstream marker_input(run_marker);
-    std::string marker_value;
-    std::getline(marker_input, marker_value);
-    if (!marker_input || marker_value != "SixSim run directory" ||
-        marker_input.peek() != std::char_traits<char>::eof()) {{
-      throw std::runtime_error(
-          "refusing to replace unmarked run directory: " +
-          run_directory.string());
-    }}
-  }}
-  std::filesystem::remove_all(run_directory);
-  const std::filesystem::path config_directory = run_directory / "configs";
-  const std::filesystem::path source_scenario_path =
-      {cpp_string(config["scenario_path"])};
-  const std::filesystem::path copied_scenario_path =
-      config_directory / "scenario.yaml";
-  std::filesystem::create_directories(config_directory);
-  std::ofstream marker_output(run_marker);
-  marker_output << "SixSim run directory\\n";
-  if (!marker_output) {{
-    throw std::runtime_error("failed to write run directory marker: " +
-                             run_marker.string());
-  }}
-  std::filesystem::copy_file(
-      source_scenario_path,
-      copied_scenario_path,
-      std::filesystem::copy_options::overwrite_existing);
-  LogSink log{{run_directory}};
-  const double logging_period_s =
-      1.0 / {cpp_number(config["logging_rate_hz"])};
-  double next_log_time_s = 0.0;
-
-  const double unloaded_mass_kg = {cpp_number(config["unloaded_mass_kg"])};
-
-  MassProperties mass_properties{{}};
-  mass_properties.mass_kg = unloaded_mass_kg;
-  mass_properties.inertia_body_kgm2 = {cpp_vector(config["inertia_body_kgm2"])};
-
-  const auto compute_derivative =
-      [&](const auto& current_state, const ForceMoment& force_moment) {{
-        return rigid_body_derivative(
-            current_state, force_moment, mass_properties);
-      }};
-
-  VehicleContext vehicle{{
-      mass_properties,
-      unloaded_mass_kg,
-      actuator,
-  }};
-
-  const AuxiliaryContext auxiliary{{
-      vehicle,
-      atmosphere_model,
-      wind_model,
-      gravity_model,
-      aerodynamics_model,
-      propulsion_model,
-  }};
-
-  const auto step_state =
-      [&](const SimTime& current_time, const auto& current_state, double dt_s) {{
-        if (current_time.simtime_s >= next_log_time_s) {{
-          log_truth_sample(log, current_time, current_state);
-          do {{
-            next_log_time_s += logging_period_s;
-          }} while (next_log_time_s <= current_time.simtime_s);
-        }}
-
-        const AtmosphereState atmosphere =
-            auxiliary.atmosphere_model.evaluate(current_time,
-                                                current_state.position_ned_m);
-        const WindState wind =
-            auxiliary.wind_model.evaluate(current_time,
-                                          current_state.position_ned_m);
-        const GravityState gravity =
-            auxiliary.gravity_model.evaluate(current_time,
-                                             current_state.position_ned_m);
-        const AerodynamicState aerodynamic_state =
-            compute_aerodynamic_state(current_state, atmosphere, wind);
-
-        const ForceMoment propulsion_force_moment =
-            auxiliary.propulsion_model.evaluate(current_time,
-                                                current_state,
-                                                auxiliary.vehicle);
-        const ForceMoment gravity_force_moment =
-            gravity_force_moment_body(gravity,
-                                      auxiliary.vehicle.mass_properties,
-                                      current_state.q_body2ned);
-        const ForceMoment aerodynamics_force_moment =
-            auxiliary.aerodynamics_model.evaluate(current_state,
-                                                  aerodynamic_state,
-                                                  auxiliary.vehicle);
-
-        const ForceMoment force_moment =
-            combine_force_moment(gravity_force_moment,
-                                 aerodynamics_force_moment,
-                                 propulsion_force_moment);
-
-        return advance_state_rk4(
-            current_state,
-            dt_s,
-            [&](const auto& rk4_state) {{
-              return compute_derivative(rk4_state, force_moment);
-            }},
-            post_step_routine);
-      }};
-
-  state = run_loop(config, step_state, state, events, time);
-
-  std::ofstream manifest(run_directory / "manifest.yaml");
-  if (!manifest) {{
-    throw std::runtime_error("failed to open run manifest");
-  }}
-  manifest << "scenario:\\n"
-           << "  original: " << std::quoted(source_scenario_path.string()) << '\\n'
-           << "  copied: \\"configs/scenario.yaml\\"\\n"
-           << "raw:\\n"
-           << "  truth: \\"raw/truth.csv\\"\\n";
-  if (!manifest) {{
-    throw std::runtime_error("failed to write run manifest");
-  }}
-
-  std::cout << "final simtime: " << time.simtime_s << '\\n';
-  std::cout << "stop simulation trigger time: "
-            << events.stop_simulation.trigger_time_s << '\\n';
-  std::cout << "final position NED z: " << std::fixed << std::setprecision(9)
-            << state.position_ned_m.z << '\\n';
-  std::cout << "final velocity body x: " << std::fixed << std::setprecision(9)
-            << state.velocity_body_mps.x << '\\n';
-  std::cout << "final velocity body y: " << std::fixed << std::setprecision(9)
-            << state.velocity_body_mps.y << '\\n';
-  std::cout << "final mass: " << std::fixed << std::setprecision(9)
-            << mass_properties.mass_kg << '\\n';
+  return scenario;
 }}
 
 }}  // namespace sixsim::sim
@@ -770,7 +608,7 @@ void run_simulation(const std::filesystem::path& output_directory) {{
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate SixSim run_simulation.cpp from a scenario YAML file."
+        description="Generate a SixSim C++ scenario configuration header."
     )
     parser.add_argument("scenario", type=Path)
     parser.add_argument("output", type=Path)
@@ -792,7 +630,7 @@ def main():
         return 1
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render_run_simulation(config), encoding="utf-8")
+    args.output.write_text(render_scenario_config(config), encoding="utf-8")
     return 0
 
 

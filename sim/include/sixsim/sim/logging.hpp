@@ -10,6 +10,8 @@
 
 namespace sixsim::sim {
 
+struct RigidBodyState;
+
 struct LogField {
   const char* name{};
   double value{};
@@ -26,6 +28,23 @@ class LogSink {
  private:
   std::filesystem::path raw_directory_;
   std::map<std::string, std::vector<std::string>> stream_fields_;
+};
+
+void log_truth_sample(LogSink& log,
+                      const SimTime& time,
+                      const RigidBodyState& state);
+
+class SimulationLogger {
+ public:
+  SimulationLogger(std::filesystem::path run_directory,
+                   double logging_rate_hz);
+
+  void log_truth(const SimTime& time, const RigidBodyState& state);
+
+ private:
+  LogSink log_;
+  double logging_period_s_{};
+  double next_log_time_s_{};
 };
 
 }  // namespace sixsim::sim

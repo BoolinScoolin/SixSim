@@ -15,7 +15,7 @@ Run the executable.
 
 ## MATLAB Compare
 
-Build the MATLAB comparison target. CMake generates its `run_simulation.cpp`
+Build the MATLAB comparison target. CMake generates its `scenario_config.hpp`
 from `configs/scenarios/test/matlab_compare.yaml` during the build.
 
 ```sh

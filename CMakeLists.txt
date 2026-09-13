@@ -20,16 +20,17 @@ if(NOT SIXSIM_CODEGEN_IMPORT_RESULT EQUAL 0)
   )
 endif()
 
-function(add_generated_simulation output scenario)
+function(add_generated_scenario config_header scenario)
+  get_filename_component(output_directory ${config_header} DIRECTORY)
   add_custom_command(
-    OUTPUT ${output}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+    OUTPUT ${config_header}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${output_directory}
     COMMAND ${CMAKE_COMMAND} -E env
             "PYTHONPATH=${SIXSIM_CODEGEN_PYTHONPATH}"
             ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/tools/codegen/generate_run_simulation.py
             ${scenario}
-            ${output}
+            ${config_header}
     DEPENDS
       ${scenario}
       ${CMAKE_SOURCE_DIR}/tools/codegen/generate_run_simulation.py
@@ -39,23 +40,27 @@ function(add_generated_simulation output scenario)
   )
 endfunction()
 
-set(SIXSIM_SMOKE_RUN_SIMULATION ${CMAKE_BINARY_DIR}/generated/run_simulation.cpp)
-set(SIXSIM_MATLAB_COMPARE_RUN_SIMULATION ${CMAKE_BINARY_DIR}/generated/matlab_compare_run_simulation.cpp)
+set(SIXSIM_SMOKE_SCENARIO_CONFIG
+    ${CMAKE_BINARY_DIR}/generated/smoke/scenario_config.hpp)
+set(SIXSIM_MATLAB_COMPARE_SCENARIO_CONFIG
+    ${CMAKE_BINARY_DIR}/generated/matlab_compare/scenario_config.hpp)
 
-add_generated_simulation(
-  ${SIXSIM_SMOKE_RUN_SIMULATION}
+add_generated_scenario(
+  ${SIXSIM_SMOKE_SCENARIO_CONFIG}
   ${CMAKE_SOURCE_DIR}/configs/scenarios/test/smoke.yaml
 )
 
-add_generated_simulation(
-  ${SIXSIM_MATLAB_COMPARE_RUN_SIMULATION}
+add_generated_scenario(
+  ${SIXSIM_MATLAB_COMPARE_SCENARIO_CONFIG}
   ${CMAKE_SOURCE_DIR}/configs/scenarios/test/matlab_compare.yaml
 )
 
 add_executable(rigid_body_smoke
   apps/smoke/rigid_body_smoke.cpp
-  ${SIXSIM_SMOKE_RUN_SIMULATION}
+  ${SIXSIM_SMOKE_SCENARIO_CONFIG}
   sim/src/logging.cpp
+  sim/src/run_artifacts.cpp
+  sim/src/run_simulation.cpp
   sim/models/aerodynamics/simple_aerodynamics_model_v1.cpp
   sim/models/aerodynamics/zero_aerodynamics.cpp
   sim/models/atmosphere/constant_atmosphere.cpp
@@ -71,12 +76,15 @@ target_include_directories(rigid_body_smoke PRIVATE
   .
   include
   sim/include
+  ${CMAKE_BINARY_DIR}/generated/smoke
 )
 
 add_executable(matlab_compare_smoke
   apps/smoke/rigid_body_smoke.cpp
-  ${SIXSIM_MATLAB_COMPARE_RUN_SIMULATION}
+  ${SIXSIM_MATLAB_COMPARE_SCENARIO_CONFIG}
   sim/src/logging.cpp
+  sim/src/run_artifacts.cpp
+  sim/src/run_simulation.cpp
   sim/models/aerodynamics/simple_aerodynamics_model_v1.cpp
   sim/models/aerodynamics/zero_aerodynamics.cpp
   sim/models/atmosphere/constant_atmosphere.cpp
@@ -92,4 +100,5 @@ target_include_directories(matlab_compare_smoke PRIVATE
   .
   include
   sim/include
+  ${CMAKE_BINARY_DIR}/generated/matlab_compare
 )

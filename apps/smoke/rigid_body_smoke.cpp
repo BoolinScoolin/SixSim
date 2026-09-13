@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  sixsim::sim::run_simulation(output_directory);
+  sixsim::sim::Simulation simulation{output_directory};
+  simulation.run();
   return 0;
 }
