@@ -113,11 +113,9 @@ SixSim/
 
   hal/
     include/
-    src/
-      teensy/
-      sitl/
-      replay/
-      hil/
+    sitl/
+    fcu/
+      <fcu_name>/
 
     tests/
       unit/
@@ -240,57 +238,25 @@ Do not build scenario parsing until it becomes the next approved step.
 
 Monte Carlo configuration should remain separate because it describes distributions, dispersions, run counts, seeds, and campaign-level behavior rather than a single nominal run.
 
-## Flight software philosophy
+## Flight software and HAL philosophy
 
-Flight software algorithms should operate on shared input and output data structures.
+[HAL.md](HAL.md) is the authoritative source for HAL architecture, SITL hardware
+ownership, sensor data flow, and the separately approved implementation roadmap.
 
-Flight algorithms should not directly call sensor or hardware interfaces.
+Flight cycle code may use platform-independent HAL interfaces to snapshot sensor
+samples, pass data to algorithms, and write commands. Flight algorithms remain
+independent of simulation and FCU-specific drivers. Keep HAL interfaces under
+`hal/include/`, SITL implementations under `hal/sitl/`, and physical implementations
+under `hal/fcu/<fcu_name>/`.
 
-The runtime or HAL is responsible for moving physical or simulated data into shared structures and moving outputs back toward simulated or physical actuators.
+Do not introduce flight software object hierarchies or hardware coupling without
+explicit approval. Configuration associated with a future flight algorithm may
+live beside its `.cpp` file only when that algorithm exists and needs it. Do not
+pre-create flight modules or flight YAML files.
 
-Conceptually:
-
-```text
-physical or simulated source
-          |
-          v
-         HAL
-          |
-          v
-shared flight data structures
-          |
-          v
-flight algorithms
-```
-
-Do not introduce flight software object hierarchies, direct sensor ownership, or hardware coupling without explicit approval.
-
-Configuration associated with a future flight algorithm may live beside its `.cpp` file, but only when that algorithm actually exists and needs configuration.
-
-Do not pre-create flight modules or flight YAML files.
-
-## HAL philosophy
-
-The HAL should move data between runtime-specific sources and the shared flight data structures.
-
-Flight algorithms should not include files such as:
-
-```cpp
-#include "hal/imu.hpp"
-#include "hal/clock.hpp"
-```
-
-unless the architecture is explicitly changed later.
-
-The likely pattern is closer to:
-
-```cpp
-hal.read_inputs(shared_data);
-flight.step(shared_data);
-hal.write_outputs(shared_data);
-```
-
-Do not implement the complete HAL now. Define only the minimum portion required by an approved step.
+The roadmap does not authorize batch implementation. Define only the minimum
+portion required by the next approved step; all working and testing rules in this
+file remain in force.
 
 ## Code quality
 

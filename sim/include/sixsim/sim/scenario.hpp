@@ -15,6 +15,7 @@
 namespace sixsim::sim {
 
 struct Environment {
+  double origin_altitude_msl_m{};
   std::unique_ptr<AtmosphereModel> atmosphere;
   std::unique_ptr<WindModel> wind;
   std::unique_ptr<GravityModel> gravity;

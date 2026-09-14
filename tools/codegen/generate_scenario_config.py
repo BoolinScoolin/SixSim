@@ -496,6 +496,12 @@ def load_scenario(path):
 
 
 def parse_scenario(scenario):
+    environment = require_mapping(scenario.get("environment", {}), "environment")
+    origin_altitude_msl_m = (
+        require_number(environment, "origin_altitude_msl_m", "environment")
+        if "origin_altitude_msl_m" in environment
+        else 0.0
+    )
     simulation = require_mapping(scenario.get("simulation"), "simulation")
     logging_rate_hz = require_number(simulation, "logging_rate_hz", "simulation")
     if logging_rate_hz <= 0.0:
@@ -520,6 +526,7 @@ def parse_scenario(scenario):
     q_body2ned = parse_initial_attitude(rigid_body)
 
     return {
+        "origin_altitude_msl_m": origin_altitude_msl_m,
         "dt_s": require_number(simulation, "dt_s", "simulation"),
         "logging_rate_hz": logging_rate_hz,
         "stop_simulation_time_s": require_number(
@@ -576,6 +583,8 @@ namespace sixsim::sim {{
 
 inline Scenario build_scenario() {{
   Scenario scenario{{}};
+  scenario.environment.origin_altitude_msl_m =
+      {cpp_number(config["origin_altitude_msl_m"])};
   scenario.simulation.dt_s = {cpp_number(config["dt_s"])};
   scenario.simulation.stop_simulation_time_s =
       {cpp_number(config["stop_simulation_time_s"])};

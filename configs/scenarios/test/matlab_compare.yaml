@@ -4,6 +4,9 @@ simulation:
   stop_simulation_time_s: 17.9
   integrator: rk4
 
+environment:
+  origin_altitude_msl_m: 0.0
+
 initial_state:
   rigid_body:
     position_ned_m: [0.0, 0.0, 0.0]
