@@ -19,11 +19,11 @@ Build the MATLAB comparison target. CMake generates its `scenario_config.hpp`
 from `configs/scenarios/test/matlab_compare.yaml` during the build.
 
 ```sh
-cmake --build build --target matlab_compare_smoke
+cmake --build build --target matlab_compare
 ```
 
 Run the executable.
 
 ```sh
-.\build\Debug\matlab_compare_smoke.exe
+.\build\Debug\matlab_compare.exe
 ```

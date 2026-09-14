@@ -79,7 +79,7 @@ target_include_directories(rigid_body_smoke PRIVATE
   ${CMAKE_BINARY_DIR}/generated/smoke
 )
 
-add_executable(matlab_compare_smoke
+add_executable(matlab_compare
   apps/smoke/rigid_body_smoke.cpp
   ${SIXSIM_MATLAB_COMPARE_SCENARIO_CONFIG}
   sim/src/logging.cpp
@@ -94,9 +94,9 @@ add_executable(matlab_compare_smoke
   sim/models/wind/constant_wind.cpp
 )
 
-target_compile_features(matlab_compare_smoke PRIVATE cxx_std_20)
+target_compile_features(matlab_compare PRIVATE cxx_std_20)
 
-target_include_directories(matlab_compare_smoke PRIVATE
+target_include_directories(matlab_compare PRIVATE
   .
   include
   sim/include

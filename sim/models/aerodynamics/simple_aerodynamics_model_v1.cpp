@@ -2,13 +2,11 @@
 
 #include <cmath>
 
+#include "sixsim/gnc/constants.hpp"
+
 namespace sixsim::sim {
 
 namespace {
-
-constexpr double pi() {
-  return 3.141592653589793238462643383279502884;
-}
 
 math::Vector3 drag_force_body(const AerodynamicState& aerodynamic_state,
                               double reference_area_m2,
@@ -34,7 +32,7 @@ math::Vector3 fin_normal_force_body(
 
   for (int fin_index = 0; fin_index < params.fin_count; ++fin_index) {
     const double psi_rad =
-        2.0 * pi() * static_cast<double>(fin_index) /
+        2.0 * SIXSIM_PI * static_cast<double>(fin_index) /
         static_cast<double>(params.fin_count);
     const double alpha_i_rad =
         aerodynamic_state.angle_of_attack_rad * std::cos(psi_rad) -

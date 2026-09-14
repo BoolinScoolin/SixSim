@@ -41,14 +41,14 @@ The current smoke executable is `rigid_body_smoke`.
 Run the MATLAB comparison scenario from the repository root with:
 
 ```sh
-./build/matlab_compare_smoke
+./build/matlab_compare
 ```
 
 By default, raw logs are written under `runs/matlab_compare/`. Use `--output`
 to provide a complete run directory instead:
 
 ```sh
-./build/matlab_compare_smoke --output runs/my_matlab_run
+./build/matlab_compare --output runs/my_matlab_run
 ```
 
 ## YAML Code Generation
