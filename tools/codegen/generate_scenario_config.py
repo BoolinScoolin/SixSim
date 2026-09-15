@@ -360,7 +360,7 @@ def include_zero_aerodynamics(_parsed):
 
 def construct_zero_aerodynamics(_parsed):
     return (
-        "  scenario.vehicle.aerodynamics = "
+        "  vehicle.aerodynamics = "
         "std::make_unique<ZeroAerodynamics>();"
     )
 
@@ -401,7 +401,7 @@ def include_simple_aerodynamics_model_v1(_parsed):
 
 
 def construct_simple_aerodynamics_model_v1(parsed):
-    return f"""  scenario.vehicle.aerodynamics =
+    return f"""  vehicle.aerodynamics =
       std::make_unique<SimpleAerodynamicsModelV1>(
           SimpleAerodynamicsModelV1Params{{
               {cpp_number(parsed["reference_area_m2"])},
@@ -442,7 +442,7 @@ def include_hardcoded_thrust_curve_propulsion(_parsed):
 
 
 def construct_hardcoded_thrust_curve_propulsion(parsed):
-    return f"""  scenario.vehicle.propulsion =
+    return f"""  vehicle.propulsion =
       std::make_unique<HardcodedThrustCurvePropulsion>(
           math::Vector3{cpp_vector(parsed["thrust_direction_body"])});"""
 
@@ -467,7 +467,7 @@ def include_zero_propulsion(_parsed):
 
 def construct_zero_propulsion(_parsed):
     return (
-        "  scenario.vehicle.propulsion = "
+        "  vehicle.propulsion = "
         "std::make_unique<ZeroPropulsion>();"
     )
 
@@ -495,6 +495,35 @@ def load_scenario(path):
     return require_mapping(scenario, "scenario")
 
 
+def resolve_fcu_profile(name):
+    profile_path = REPO_ROOT / "configs" / "fcus" / f"{name}.yaml"
+    if not profile_path.is_file():
+        raise ValueError(f"FCU profile does not exist: {profile_path}")
+    try:
+        with profile_path.open("r", encoding="utf-8") as stream:
+            profile = yaml.safe_load(stream)
+    except OSError as error:
+        raise ValueError(f"Failed to read FCU profile {profile_path}: {error}")
+    profile = require_mapping(profile, f"FCU profile {name}")
+    profile_name = profile.get("name")
+    if profile_name != name:
+        raise ValueError(
+            f"FCU profile {profile_path}.name must match reference {name!r}"
+        )
+    sensors = profile.get("sensors", {})
+    if not isinstance(sensors, dict):
+        raise ValueError(f"FCU profile {name}.sensors must be a mapping")
+    for sensor_name, sensor_config in sensors.items():
+        if not isinstance(sensor_name, str) or not sensor_name.strip():
+            raise ValueError(
+                f"FCU profile {name}.sensors names must be non-empty strings"
+            )
+        sensor_path = f"FCU profile {name}.sensors.{sensor_name}"
+        sensor_config = require_mapping(sensor_config, sensor_path)
+        require_type(sensor_config, {"altimeter", "timer"}, sensor_path)
+    return {"name": name, "sensors": sensors}
+
+
 def parse_scenario(scenario):
     environment = require_mapping(scenario.get("environment", {}), "environment")
     origin_altitude_msl_m = (
@@ -513,6 +542,17 @@ def parse_scenario(scenario):
     )
     models = require_mapping(scenario.get("models"), "models")
     vehicle = require_mapping(scenario.get("vehicle"), "vehicle")
+    vehicle_name = vehicle.get("name", "vehicle_0")
+    if not isinstance(vehicle_name, str) or not vehicle_name.strip():
+        raise ValueError("vehicle.name must be a non-empty string")
+    fcu_names = vehicle.get("fcus", [])
+    if not isinstance(fcu_names, list):
+        raise ValueError("vehicle.fcus must be a list of profile names")
+    resolved_fcu_profiles = []
+    for index, fcu_name in enumerate(fcu_names):
+        if not isinstance(fcu_name, str) or not fcu_name.strip():
+            raise ValueError(f"vehicle.fcus[{index}] must be a non-empty string")
+        resolved_fcu_profiles.append(resolve_fcu_profile(fcu_name))
     mass_properties = require_mapping(
         vehicle.get("mass_properties"), "vehicle.mass_properties"
     )
@@ -527,6 +567,8 @@ def parse_scenario(scenario):
 
     return {
         "origin_altitude_msl_m": origin_altitude_msl_m,
+        "vehicle_name": vehicle_name,
+        "fcu_profiles": resolved_fcu_profiles,
         "dt_s": require_number(simulation, "dt_s", "simulation"),
         "logging_rate_hz": logging_rate_hz,
         "stop_simulation_time_s": require_number(
@@ -560,11 +602,47 @@ def render_model_includes(config):
     )
 
 
-def render_model_constructions(config):
+def render_model_constructions(config, categories):
     return "\n\n".join(
         render_model_construction(config["models"][category])
-        for category in MODEL_CATEGORIES
+        for category in categories
     )
+
+
+def render_sitl_sensor_includes(config):
+    sensor_types = {
+        sensor_config["type"]
+        for profile in config["fcu_profiles"]
+        for sensor_config in profile["sensors"].values()
+    }
+    includes = []
+    if "altimeter" in sensor_types:
+        includes.append('#include "hal/sitl/altimeter.hpp"')
+    if "timer" in sensor_types:
+        includes.append('#include "hal/sitl/timer.hpp"')
+    return "\n".join(includes)
+
+
+def render_fcu_constructions(config):
+    lines = []
+    for index, profile in enumerate(config["fcu_profiles"]):
+        lines.append(
+            f'  vehicle.fcus.emplace_back({cpp_string(profile["name"])});'
+        )
+        for sensor_name, sensor_config in profile["sensors"].items():
+            if sensor_config["type"] == "altimeter":
+                lines.append(
+                    f'  vehicle.fcus[{index}]'
+                    f'.create_sensor<hal::SitlAltimeter>'
+                    f'({cpp_string(sensor_name)});'
+                )
+            elif sensor_config["type"] == "timer":
+                lines.append(
+                    f'  vehicle.fcus[{index}]'
+                    f'.create_sensor<hal::SitlTimer>'
+                    f'({cpp_string(sensor_name)});'
+                )
+    return "\n".join(lines)
 
 
 def render_scenario_config(config):
@@ -572,6 +650,7 @@ def render_scenario_config(config):
 
 {render_integrator_include(config["integrator"])}
 #include "sixsim/sim/scenario.hpp"
+{render_sitl_sensor_includes(config)}
 
 {render_model_includes(config)}
 
@@ -591,24 +670,34 @@ inline Scenario build_scenario() {{
   scenario.logging_rate_hz = {cpp_number(config["logging_rate_hz"])};
   scenario.source_scenario_path = {cpp_string(config["scenario_path"])};
   scenario.default_run_directory = {cpp_string(config["run_directory"])};
-  scenario.vehicle.state.position_ned_m =
-      {cpp_vector(config["position_ned_m"])};
-  scenario.vehicle.state.velocity_body_mps =
-      {cpp_vector(config["velocity_body_mps"])};
-  scenario.vehicle.state.omega_body_rps =
-      {cpp_vector(config["omega_body_rps"])};
-  scenario.vehicle.state.q_body2ned = {cpp_vector(config["q_body2ned"])};
-  scenario.vehicle.unloaded_mass_kg =
-      {cpp_number(config["unloaded_mass_kg"])};
-  scenario.vehicle.mass_properties.mass_kg =
-      scenario.vehicle.unloaded_mass_kg;
-  scenario.vehicle.mass_properties.inertia_body_kgm2 =
-      {cpp_vector(config["inertia_body_kgm2"])};
-  scenario.vehicle.actuator = ActuatorState{{}};
 
-{render_model_constructions(config)}
+{render_model_constructions(config, ("atmosphere", "wind", "gravity"))}
 
   return scenario;
+}}
+
+inline Vehicle build_vehicle() {{
+  Vehicle vehicle{{}};
+  vehicle.name = {cpp_string(config["vehicle_name"])};
+{render_fcu_constructions(config)}
+  vehicle.state.position_ned_m =
+      {cpp_vector(config["position_ned_m"])};
+  vehicle.state.velocity_body_mps =
+      {cpp_vector(config["velocity_body_mps"])};
+  vehicle.state.omega_body_rps =
+      {cpp_vector(config["omega_body_rps"])};
+  vehicle.state.q_body2ned = {cpp_vector(config["q_body2ned"])};
+  vehicle.unloaded_mass_kg =
+      {cpp_number(config["unloaded_mass_kg"])};
+  vehicle.mass_properties.mass_kg =
+      vehicle.unloaded_mass_kg;
+  vehicle.mass_properties.inertia_body_kgm2 =
+      {cpp_vector(config["inertia_body_kgm2"])};
+  vehicle.actuator = ActuatorState{{}};
+
+{render_model_constructions(config, ("aerodynamics", "propulsion"))}
+
+  return vehicle;
 }}
 
 }}  // namespace sixsim::sim

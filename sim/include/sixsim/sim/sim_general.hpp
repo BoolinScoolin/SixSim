@@ -10,9 +10,18 @@ class AtmosphereModel;
 class GravityModel;
 class PropulsionModel;
 class WindModel;
+struct Environment;
+struct RigidBodyState;
 
 struct SimTime {
   double simtime_s{};
+};
+
+// Non-owning simulation truth available during one sensor update.
+struct SensorTruthInputs {
+  const SimTime& time;
+  const RigidBodyState& vehicle_state;
+  const Environment& environment;
 };
 
 struct SimulationConfig {

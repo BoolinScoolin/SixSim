@@ -1,7 +1,10 @@
 #pragma once
 
 #include "sixsim/math/comparison.hpp"
+#include "sixsim/sim/scenario.hpp"
 #include "sixsim/sim/sim_general.hpp"
+
+#include <vector>
 
 namespace sixsim::sim {
 
@@ -15,12 +18,11 @@ struct SimulationEvents {
   SimulationEventFlag stop_simulation{};
 };
 
-template <typename State>
-void evaluate_simulation_events(const SimTime& time,
-                                const State& state,
-                                const SimulationConfig& config,
-                                SimulationEvents& events) {
-  (void)state;
+inline void evaluate_simulation_events(const SimTime& time,
+                                       const std::vector<Vehicle>& vehicles,
+                                       const SimulationConfig& config,
+                                       SimulationEvents& events) {
+  (void)vehicles;
 
   if (!events.stop_simulation.triggered &&
       math::compare_geq(time.simtime_s, config.stop_simulation_time_s)) {

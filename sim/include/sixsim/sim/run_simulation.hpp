@@ -5,6 +5,7 @@
 #include "sixsim/sim/simulation_event.hpp"
 
 #include <filesystem>
+#include <vector>
 
 namespace sixsim::sim {
 
@@ -12,16 +13,14 @@ class Simulation {
  public:
   explicit Simulation(std::filesystem::path output_directory = {});
 
-  void run();
+ void run();
 
  private:
-  RigidBodyState update_vehicle_state(const SimTime& time,
-                                      const RigidBodyState& state,
-                                      double dt_s,
-                                      const AuxiliaryContext& auxiliary);
+  void update_vehicle_state(Vehicle& vehicle);
 
   std::filesystem::path output_directory_;
   Scenario scenario_;
+  std::vector<Vehicle> vehicles_;
   SimTime time_{};
   SimulationEvents events_{};
 };

@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include "hal/fcu/uno_r3/timer.hpp"
+#include "hal/fcu/teensytest/timer.hpp"
 
-sixsim::hal::UnoR3Timer timer;
+sixsim::hal::TeensyTestTimer timer;
 
 void setup() {
     Serial.begin(115200);
