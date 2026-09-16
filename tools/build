@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+import argparse
+import subprocess
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Configure SixSim and build one target."
+    )
+    parser.add_argument("target", help="CMake target to build")
+    args = parser.parse_args()
+
+    repo_root = Path(__file__).resolve().parents[1]
+    build_directory = repo_root / "build"
+
+    configure_result = subprocess.run(
+        ["cmake", "-S", str(repo_root), "-B", str(build_directory)]
+    )
+    if configure_result.returncode != 0:
+        return configure_result.returncode
+
+    return subprocess.run(
+        ["cmake", "--build", str(build_directory), "--target", args.target]
+    ).returncode
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

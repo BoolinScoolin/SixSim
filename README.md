@@ -34,13 +34,19 @@ cmake -S . -B build
 cmake --build build
 ```
 
-The current smoke executable is `rigid_body_smoke`.
+Each YAML file under `configs/scenarios/` produces a target named after its
+filename. Configure and build one scenario with:
+
+```sh
+./tools/build smoke
+```
 
 ## Running Simulations
 
 Run the MATLAB comparison scenario from the repository root with:
 
 ```sh
+./tools/build matlab_compare
 ./build/matlab_compare
 ```
 

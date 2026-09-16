@@ -1,16 +1,15 @@
 # Smoke App
 
-Configure and build the smoke executable.
+From the repository root, configure and build the smoke scenario.
 
 ```sh
-cmake -S . -B build
-cmake --build build
+./tools/build smoke
 ```
 
 Run the executable.
 
 ```sh
-.\build\Debug\rigid_body_smoke.exe
+./build/smoke
 ```
 
 ## MATLAB Compare
@@ -19,11 +18,11 @@ Build the MATLAB comparison target. CMake generates its `scenario_config.hpp`
 from `configs/scenarios/test/matlab_compare.yaml` during the build.
 
 ```sh
-cmake --build build --target matlab_compare
+./tools/build matlab_compare
 ```
 
 Run the executable.
 
 ```sh
-.\build\Debug\matlab_compare.exe
+./build/matlab_compare
 ```
