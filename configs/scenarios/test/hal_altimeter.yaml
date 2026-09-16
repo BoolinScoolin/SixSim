@@ -43,7 +43,7 @@ models:
 
 vehicle:
   fcus:
-    - dummy_fcu_rev1
+    - dummy_uno_r3
   mass_properties:
     unloaded_mass_kg: 22.452804
     inertia_body_kgm2: [0.098, 17.3574, 17.3574]
