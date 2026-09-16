@@ -1,7 +1,0 @@
-name: dummy_fcu_rev1
-
-sensors:
-  altimeter_0:
-    type: altimeter
-  timer_0:
-    type: timer

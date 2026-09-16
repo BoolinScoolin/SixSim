@@ -25,6 +25,14 @@ struct Environment {
   std::unique_ptr<GravityModel> gravity;
 };
 
+struct Scenario {
+  SimulationConfig simulation{};
+  double logging_rate_hz{};
+  std::filesystem::path source_scenario_path;
+  std::filesystem::path default_run_directory;
+  Environment environment;
+};
+
 struct Vehicle {
   std::string name{"vehicle_0"};
   bool dynamics_enabled{true};
@@ -36,10 +44,13 @@ struct Vehicle {
   std::unique_ptr<AerodynamicsModel> aerodynamics;
   std::unique_ptr<PropulsionModel> propulsion;
 
-  void update_fcus(const SimTime& time, const Environment& environment) {
-    const SensorTruthInputs inputs{time, state, environment};
+  void update_fcus(const SimTime& time, const Scenario& scenario) {
+    const SensorTruthInputs inputs{time, state, scenario.environment};
     for (hal::SitlFcu& fcu : fcus) {
       fcu.update_sensors(inputs);
+      const auto ticks = static_cast<uint64_t>(
+          scenario.simulation.dt_s * fcu.base_tick_hz());
+      fcu.tick_counter().advance(ticks);
     }
   }
 };
@@ -53,13 +64,5 @@ inline const Vehicle* find_vehicle(const std::vector<Vehicle>& vehicles,
   }
   return nullptr;
 }
-
-struct Scenario {
-  SimulationConfig simulation{};
-  double logging_rate_hz{};
-  std::filesystem::path source_scenario_path;
-  std::filesystem::path default_run_directory;
-  Environment environment;
-};
 
 }  // namespace sixsim::sim

@@ -4,9 +4,6 @@
 #include "sixsim/sim/run_artifacts.hpp"
 
 #include "scenario_config.hpp"
-// Temporary altimeter diagnostic; remove when flight-side verification exists.
-#include "hal/sitl/altimeter.hpp"
-#include "hal/sitl/timer.hpp"
 #include "sim/models/dynamics/rigid_body.hpp"
 
 #include <iomanip>
@@ -96,26 +93,13 @@ void Simulation::run() {
 
     log.log_truth(time_, vehicle.state);
     for (Vehicle& current_vehicle : vehicles_) {
-      current_vehicle.update_fcus(time_, scenario_.environment);
+      current_vehicle.update_fcus(time_, scenario_);
       update_vehicle_state(current_vehicle);
     }
     time_.simtime_s += scenario_.simulation.dt_s;
   }
 
   artifacts.save_manifest();
-
-  if (!vehicle.fcus.empty()) {
-    if (auto* altimeter =
-            vehicle.fcus[0].find_sensor<hal::SitlAltimeter>("altimeter_0")) {
-      std::cout << "final altimeter reading: " << std::fixed << std::setprecision(9)
-                << altimeter->read().altitude_msl_m << '\n';
-    }
-    if (auto* timer = vehicle.fcus[0].find_sensor<hal::SitlTimer>("timer_0")) {
-      std::cout << "final timer reading: " << std::fixed << std::setprecision(9)
-                << timer->read() << '\n';
-    }
-  }
-
 
   std::cout << "final simtime: " << time_.simtime_s << '\n';
   std::cout << "stop simulation trigger time: "

@@ -2,7 +2,10 @@
 
 from pathlib import Path
 import argparse
+import math
 import sys
+
+from fcu_profile import resolve_fcu_profile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_PYTHON_DIR = REPO_ROOT / "tools" / "python"
@@ -62,6 +65,21 @@ def require_int(mapping, key, path):
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{path}.{key} must be an integer")
     return value
+
+
+def whole_ticks(seconds, tick_rate_hz, path):
+    ticks = seconds * tick_rate_hz
+    rounded_ticks = round(ticks)
+    if not math.isclose(
+        ticks, rounded_ticks, rel_tol=0.0, abs_tol=1e-9
+    ):
+        raise ValueError(
+            f"{path} must represent a whole tick for the "
+            f"{tick_rate_hz} Hz base tick"
+        )
+    if rounded_ticks <= 0:
+        raise ValueError(f"{path} must be greater than zero")
+    return rounded_ticks
 
 
 def require_type(mapping, valid_types, path):
@@ -495,35 +513,6 @@ def load_scenario(path):
     return require_mapping(scenario, "scenario")
 
 
-def resolve_fcu_profile(name):
-    profile_path = REPO_ROOT / "configs" / "fcus" / f"{name}.yaml"
-    if not profile_path.is_file():
-        raise ValueError(f"FCU profile does not exist: {profile_path}")
-    try:
-        with profile_path.open("r", encoding="utf-8") as stream:
-            profile = yaml.safe_load(stream)
-    except OSError as error:
-        raise ValueError(f"Failed to read FCU profile {profile_path}: {error}")
-    profile = require_mapping(profile, f"FCU profile {name}")
-    profile_name = profile.get("name")
-    if profile_name != name:
-        raise ValueError(
-            f"FCU profile {profile_path}.name must match reference {name!r}"
-        )
-    sensors = profile.get("sensors", {})
-    if not isinstance(sensors, dict):
-        raise ValueError(f"FCU profile {name}.sensors must be a mapping")
-    for sensor_name, sensor_config in sensors.items():
-        if not isinstance(sensor_name, str) or not sensor_name.strip():
-            raise ValueError(
-                f"FCU profile {name}.sensors names must be non-empty strings"
-            )
-        sensor_path = f"FCU profile {name}.sensors.{sensor_name}"
-        sensor_config = require_mapping(sensor_config, sensor_path)
-        require_type(sensor_config, {"altimeter", "timer"}, sensor_path)
-    return {"name": name, "sensors": sensors}
-
-
 def parse_scenario(scenario):
     environment = require_mapping(scenario.get("environment", {}), "environment")
     origin_altitude_msl_m = (
@@ -532,6 +521,7 @@ def parse_scenario(scenario):
         else 0.0
     )
     simulation = require_mapping(scenario.get("simulation"), "simulation")
+    dt_s = require_number(simulation, "dt_s", "simulation")
     logging_rate_hz = require_number(simulation, "logging_rate_hz", "simulation")
     if logging_rate_hz <= 0.0:
         raise ValueError("simulation.logging_rate_hz must be greater than zero")
@@ -553,6 +543,24 @@ def parse_scenario(scenario):
         if not isinstance(fcu_name, str) or not fcu_name.strip():
             raise ValueError(f"vehicle.fcus[{index}] must be a non-empty string")
         resolved_fcu_profiles.append(resolve_fcu_profile(fcu_name))
+    for profile in resolved_fcu_profiles:
+        step_ticks = whole_ticks(
+            dt_s,
+            profile["base_tick_hz"],
+            f"simulation.dt_s for FCU profile {profile['name']}",
+        )
+        if profile["base_tick_hz"] % profile["cycle_rate_hz"] != 0:
+            raise ValueError(
+                f"FCU profile {profile['name']}.cycle_rate_hz must produce a "
+                f"whole-tick cycle period at {profile['base_tick_hz']} Hz"
+            )
+        cycle_period_ticks = profile["base_tick_hz"] // profile["cycle_rate_hz"]
+        if cycle_period_ticks % step_ticks != 0:
+            raise ValueError(
+                f"simulation.dt_s ({step_ticks} ticks) must divide the "
+                f"{profile['name']} flight cycle period "
+                f"({cycle_period_ticks} ticks)"
+            )
     mass_properties = require_mapping(
         vehicle.get("mass_properties"), "vehicle.mass_properties"
     )
@@ -569,7 +577,7 @@ def parse_scenario(scenario):
         "origin_altitude_msl_m": origin_altitude_msl_m,
         "vehicle_name": vehicle_name,
         "fcu_profiles": resolved_fcu_profiles,
-        "dt_s": require_number(simulation, "dt_s", "simulation"),
+        "dt_s": dt_s,
         "logging_rate_hz": logging_rate_hz,
         "stop_simulation_time_s": require_number(
             simulation, "stop_simulation_time_s", "simulation"
@@ -627,7 +635,11 @@ def render_fcu_constructions(config):
     lines = []
     for index, profile in enumerate(config["fcu_profiles"]):
         lines.append(
-            f'  vehicle.fcus.emplace_back({cpp_string(profile["name"])});'
+            f'  vehicle.fcus.emplace_back('
+            f'{cpp_string(profile["name"])}, '
+            f'sixsim::flight::FlightTimingConfig{{'
+            f'{profile["base_tick_hz"]}, '
+            f'{profile["cycle_rate_hz"]}}});'
         )
         for sensor_name, sensor_config in profile["sensors"].items():
             if sensor_config["type"] == "altimeter":
@@ -649,6 +661,7 @@ def render_scenario_config(config):
     return f"""#pragma once
 
 {render_integrator_include(config["integrator"])}
+#include "sixsim/flight/flight_computer.hpp"
 #include "sixsim/sim/scenario.hpp"
 {render_sitl_sensor_includes(config)}
 

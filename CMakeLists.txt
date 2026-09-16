@@ -82,6 +82,7 @@ target_compile_features(rigid_body_smoke PRIVATE cxx_std_20)
 target_include_directories(rigid_body_smoke PRIVATE
   .
   include
+  flight/include
   hal/include
   sim/include
   ${CMAKE_BINARY_DIR}/generated/smoke
@@ -107,6 +108,7 @@ target_compile_features(matlab_compare PRIVATE cxx_std_20)
 target_include_directories(matlab_compare PRIVATE
   .
   include
+  flight/include
   hal/include
   sim/include
   ${CMAKE_BINARY_DIR}/generated/matlab_compare
@@ -131,6 +133,7 @@ target_compile_features(hal_altimeter PRIVATE cxx_std_20)
 target_include_directories(hal_altimeter PRIVATE
   .
   include
+  flight/include
   hal/include
   sim/include
   ${CMAKE_BINARY_DIR}/generated/hal_altimeter

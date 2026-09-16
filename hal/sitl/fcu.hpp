@@ -1,6 +1,8 @@
 #pragma once
 
 #include "hal/sitl/hardware.hpp"
+#include "hal/sitl/tick_counter.hpp"
+#include "sixsim/flight/flight_computer.hpp"
 #include "sixsim/sim/sim_general.hpp"
 
 #include <string>
@@ -9,13 +11,17 @@
 
 namespace sixsim::hal {
 
-class SitlFcu {
+class SitlFcu final : public flight::FlightComputer {
  public:
-  explicit SitlFcu(std::string revision) : revision_(std::move(revision)) {}
+  SitlFcu(std::string revision, flight::FlightTimingConfig timing)
+      : FlightComputer(timing),
+        revision_(std::move(revision)) {}
 
   std::string_view revision() const { return revision_; }
   SitlHardware& hardware() { return hardware_; }
   const SitlHardware& hardware() const { return hardware_; }
+  SitlTickCounter& tick_counter() { return tick_counter_; }
+  const SitlTickCounter& tick_counter() const { return tick_counter_; }
 
   template <typename Sensor, typename... Args>
   Sensor& create_sensor(std::string name, Args&&... args) {
@@ -37,9 +43,13 @@ class SitlFcu {
     hardware_.sensors().update(inputs);
   }
 
+ protected:
+  uint64_t read_ticks() const override { return tick_counter_.read(); }
+
  private:
   std::string revision_;
   SitlHardware hardware_;
+  SitlTickCounter tick_counter_;
 };
 
 }  // namespace sixsim::hal
