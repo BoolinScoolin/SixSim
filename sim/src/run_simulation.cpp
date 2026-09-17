@@ -18,7 +18,7 @@ Simulation::Simulation(std::filesystem::path output_directory)
   vehicles_.push_back(build_vehicle());
 }
 
-void Simulation::update_vehicle_state(Vehicle& vehicle) {
+void Simulation::update_vehicle_state(ConfiguredVehicle& vehicle) {
   if (!vehicle.dynamics_enabled) {
     return;
   }
@@ -76,7 +76,7 @@ void Simulation::update_vehicle_state(Vehicle& vehicle) {
 }
 
 void Simulation::run() {
-  Vehicle& vehicle = vehicles_.front();
+  ConfiguredVehicle& vehicle = vehicles_.front();
   const RunArtifacts artifacts{
       output_directory_,
       scenario_.default_run_directory,
@@ -92,7 +92,7 @@ void Simulation::run() {
     }
 
     log.log_truth(time_, vehicle.state);
-    for (Vehicle& current_vehicle : vehicles_) {
+    for (ConfiguredVehicle& current_vehicle : vehicles_) {
       current_vehicle.update_fcus(time_, scenario_);
       update_vehicle_state(current_vehicle);
     }
@@ -101,6 +101,7 @@ void Simulation::run() {
 
   artifacts.save_manifest();
 
+  std::cout << "\n===== SIMULATION FINISHED ===== " << '\n';
   std::cout << "final simtime: " << time_.simtime_s << '\n';
   std::cout << "stop simulation trigger time: "
             << events_.stop_simulation.trigger_time_s << '\n';

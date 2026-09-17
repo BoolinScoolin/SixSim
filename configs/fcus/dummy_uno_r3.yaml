@@ -2,8 +2,12 @@ name: dummy_uno_r3
 base_tick_hz: 1000
 cycle_rate_hz: 100
 
-sensors:
-  altimeter:
-    type: altimeter
-  timer:
-    type: timer
+devices:
+  serial:
+    type: serial
+    baud_rate: 115200
+  sensors:
+    altimeter:
+      type: altimeter
+    timer:
+      type: timer

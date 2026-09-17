@@ -4,8 +4,11 @@
 #include <iostream>
 #include <string_view>
 
+// Shared entry point for scenario-generated simulation executables.
 int main(int argc, char* argv[]) {
   std::filesystem::path output_directory;
+
+  // Use an explicit run directory when one is supplied.
   if (argc == 3 && std::string_view(argv[1]) == "--output" &&
       argv[2][0] != '\0') {
     output_directory = argv[2];

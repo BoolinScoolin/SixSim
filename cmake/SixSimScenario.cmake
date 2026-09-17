@@ -88,9 +88,33 @@ function(sixsim_add_scenario scenario)
     VERBATIM
   )
 
+  set(generated_sitl_device_headers)
+  foreach(profile IN LISTS SIXSIM_SCENARIO_FCU_PROFILES)
+    set(sitl_devices_header
+      "${generated_directory}/sixsim/hal/generated/${profile}/sitl_devices.hpp"
+    )
+    add_custom_command(
+      OUTPUT ${sitl_devices_header}
+      COMMAND ${CMAKE_COMMAND} -E env
+              "PYTHONPATH=${SIXSIM_CODEGEN_PYTHONPATH}"
+              ${Python3_EXECUTABLE}
+              ${CMAKE_SOURCE_DIR}/tools/codegen/generate_fcu_config.py
+              --sitl-devices
+              ${profile}
+              ${sitl_devices_header}
+      DEPENDS
+        ${CMAKE_SOURCE_DIR}/configs/fcus/${profile}.yaml
+        ${CMAKE_SOURCE_DIR}/tools/codegen/generate_fcu_config.py
+        ${CMAKE_SOURCE_DIR}/tools/codegen/fcu_profile.py
+      VERBATIM
+    )
+    list(APPEND generated_sitl_device_headers ${sitl_devices_header})
+  endforeach()
+
   add_executable(${target}
-    ${CMAKE_SOURCE_DIR}/apps/smoke/rigid_body_smoke.cpp
+    ${CMAKE_SOURCE_DIR}/apps/sim/simulation_main.cpp
     ${config_header}
+    ${generated_sitl_device_headers}
     ${CMAKE_SOURCE_DIR}/sim/src/logging.cpp
     ${CMAKE_SOURCE_DIR}/sim/src/run_artifacts.cpp
     ${CMAKE_SOURCE_DIR}/sim/src/run_simulation.cpp

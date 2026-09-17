@@ -639,7 +639,7 @@ def render_sitl_sensor_includes(config):
     sensor_types = {
         sensor_config["type"]
         for profile in config["fcu_profiles"]
-        for sensor_config in profile["sensors"].values()
+        for sensor_config in profile["devices"]["sensors"].values()
     }
     includes = []
     if "altimeter" in sensor_types:
@@ -649,29 +649,64 @@ def render_sitl_sensor_includes(config):
     return "\n".join(includes)
 
 
+def render_sitl_fcu_includes(config):
+    includes = []
+    for profile in config["fcu_profiles"]:
+        include = profile["cpp_types"]["sitl_header"]
+        if include not in includes:
+            includes.append(include)
+    return "\n".join(f'#include "{include}"' for include in includes)
+
+
+def render_configured_fcu_types(config):
+    fcu_types = [
+        profile["cpp_types"]["sitl_fcu_type"]
+        for profile in config["fcu_profiles"]
+    ]
+    if not fcu_types:
+        return "using ConfiguredFcus = std::tuple<>;"
+    return "using ConfiguredFcus = std::tuple<\n    " + ",\n    ".join(
+        fcu_types
+    ) + "\n>;"
+
+
 def render_fcu_constructions(config):
     lines = []
     for index, profile in enumerate(config["fcu_profiles"]):
+        registry = f"fcu_{index}_devices"
         lines.append(
-            f'  vehicle.fcus.emplace_back('
-            f'{cpp_string(profile["name"])}, '
-            f'sixsim::flight::FlightTimingConfig{{'
-            f'{profile["base_tick_hz"]}, '
-            f'{profile["cycle_rate_hz"]}}});'
+            f"  auto {registry} = "
+            "std::make_unique<hal::SitlDeviceRegistry>();"
         )
-        for sensor_name, sensor_config in profile["sensors"].items():
+        for sensor_name, sensor_config in profile["devices"]["sensors"].items():
             if sensor_config["type"] == "altimeter":
                 lines.append(
-                    f'  vehicle.fcus[{index}]'
+                    f"  {registry}->sensors()"
                     f'.create_sensor<hal::SitlAltimeter>'
                     f'({cpp_string(sensor_name)});'
                 )
             elif sensor_config["type"] == "timer":
                 lines.append(
-                    f'  vehicle.fcus[{index}]'
+                    f"  {registry}->sensors()"
                     f'.create_sensor<hal::SitlTimer>'
                     f'({cpp_string(sensor_name)});'
                 )
+        lines.append("")
+
+    lines.append("  return ConfiguredFcus{")
+    for index, profile in enumerate(config["fcu_profiles"]):
+        cpp_types = profile["cpp_types"]
+        lines.extend(
+            (
+                f'      {cpp_types["sitl_fcu_type"]}{{',
+                "          flight::FlightTimingConfig{",
+                f'              {profile["base_tick_hz"]},',
+                f'              {profile["cycle_rate_hz"]}}},',
+                f'          {cpp_types["sitl_hal_type"]}{{',
+                f"              std::move(fcu_{index}_devices)}}}},",
+            )
+        )
+    lines.append("  };")
     return "\n".join(lines)
 
 
@@ -696,6 +731,14 @@ def render_build_manifest(config):
     lines.extend(f"  {component}" for component in components)
     lines.extend((")", ""))
 
+    lines.append("set(SIXSIM_SCENARIO_FCU_PROFILES")
+    profile_names = []
+    for profile in config["fcu_profiles"]:
+        if profile["name"] not in profile_names:
+            profile_names.append(profile["name"])
+    lines.extend(f"  {profile_name}" for profile_name in profile_names)
+    lines.extend((")", ""))
+
     lines.append("set(SIXSIM_SCENARIO_CONFIGURATION_DEPENDENCIES")
     for profile in config["fcu_profiles"]:
         lines.append(
@@ -712,15 +755,21 @@ def render_scenario_config(config):
 {render_integrator_include(config["integrator"])}
 #include "sixsim/flight/flight_computer.hpp"
 #include "sixsim/sim/scenario.hpp"
+{render_sitl_fcu_includes(config)}
 {render_sitl_sensor_includes(config)}
 
 {render_model_includes(config)}
 
 #include <memory>
+#include <tuple>
+#include <utility>
 
 namespace sixsim::sim {{
 
 {render_integrator_advance_state(config["integrator"])}
+
+{render_configured_fcu_types(config)}
+using ConfiguredVehicle = Vehicle<ConfiguredFcus>;
 
 inline Scenario build_scenario() {{
   Scenario scenario{{}};
@@ -738,10 +787,13 @@ inline Scenario build_scenario() {{
   return scenario;
 }}
 
-inline Vehicle build_vehicle() {{
-  Vehicle vehicle{{}};
-  vehicle.name = {cpp_string(config["vehicle_name"])};
+inline ConfiguredFcus build_fcus() {{
 {render_fcu_constructions(config)}
+}}
+
+inline ConfiguredVehicle build_vehicle() {{
+  ConfiguredVehicle vehicle{{build_fcus()}};
+  vehicle.name = {cpp_string(config["vehicle_name"])};
   vehicle.state.position_ned_m =
       {cpp_vector(config["position_ned_m"])};
   vehicle.state.velocity_body_mps =

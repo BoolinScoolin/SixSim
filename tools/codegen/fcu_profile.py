@@ -27,6 +27,14 @@ CPP17_KEYWORDS = frozenset(
     "xor xor_eq".split()
 )
 
+FCU_CPP_TYPES = {
+    "dummy_uno_r3": {
+        "sitl_header": "hal/sitl/dummy_uno_r3/hal.hpp",
+        "sitl_hal_type": "sixsim::hal::SitlDummyUnoR3Hal",
+        "sitl_fcu_type": "sixsim::hal::SitlDummyUnoR3Fcu",
+    },
+}
+
 
 def require_mapping(value, path):
     if not isinstance(value, dict):
@@ -76,23 +84,49 @@ def resolve_fcu_profile(name):
         raise ValueError(
             f"FCU profile {profile_path}.name must match reference {name!r}"
         )
+    require_cpp_identifier(profile_name, f"FCU profile {name}.name")
+    if name not in FCU_CPP_TYPES:
+        raise ValueError(f"FCU profile has no registered C++ types: {name}")
     cycle_rate_hz = require_int(profile, "cycle_rate_hz", f"FCU profile {name}")
     if cycle_rate_hz <= 0:
         raise ValueError(f"FCU profile {name}.cycle_rate_hz must be greater than zero")
     base_tick_hz = require_int(profile, "base_tick_hz", f"FCU profile {name}")
     if base_tick_hz <= 0:
         raise ValueError(f"FCU profile {name}.base_tick_hz must be greater than zero")
-    sensors = profile.get("sensors", {})
+    devices = require_mapping(
+        profile.get("devices"), f"FCU profile {name}.devices"
+    )
+    parsed_devices = {}
+    for device_name, device_config in devices.items():
+        if device_name == "sensors":
+            continue
+        require_cpp_identifier(device_name, f"FCU profile {name}.devices key")
+        device_path = f"FCU profile {name}.devices.{device_name}"
+        device_config = require_mapping(device_config, device_path)
+        device_type = require_type(device_config, {"serial"}, device_path)
+        baud_rate = require_int(device_config, "baud_rate", device_path)
+        if baud_rate <= 0 or baud_rate > 0xFFFFFFFF:
+            raise ValueError(
+                f"{device_path}.baud_rate must be between 1 and 4294967295"
+            )
+        parsed_devices[device_name] = {
+            "type": device_type,
+            "baud_rate": baud_rate,
+        }
+    sensors = devices.get("sensors", {})
     if not isinstance(sensors, dict):
-        raise ValueError(f"FCU profile {name}.sensors must be a mapping")
+        raise ValueError(f"FCU profile {name}.devices.sensors must be a mapping")
     for sensor_name, sensor_config in sensors.items():
-        require_cpp_identifier(sensor_name, f"FCU profile {name}.sensors key")
-        sensor_path = f"FCU profile {name}.sensors.{sensor_name}"
+        require_cpp_identifier(
+            sensor_name, f"FCU profile {name}.devices.sensors key"
+        )
+        sensor_path = f"FCU profile {name}.devices.sensors.{sensor_name}"
         sensor_config = require_mapping(sensor_config, sensor_path)
         require_type(sensor_config, {"altimeter", "timer"}, sensor_path)
     return {
         "name": name,
         "base_tick_hz": base_tick_hz,
         "cycle_rate_hz": cycle_rate_hz,
-        "sensors": sensors,
+        "devices": {**parsed_devices, "sensors": sensors},
+        "cpp_types": FCU_CPP_TYPES[name],
     }

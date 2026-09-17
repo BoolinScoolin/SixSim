@@ -5,7 +5,7 @@
 
 namespace sixsim::hal {
 
-class SitlHardware {
+class SitlDeviceRegistry {
  public:
   SitlSensors& sensors() { return sensors_; }
   const SitlSensors& sensors() const { return sensors_; }

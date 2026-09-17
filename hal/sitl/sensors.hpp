@@ -43,24 +43,24 @@ class SitlSensors {
     return sensor_reference;
   }
 
-  template <typename Sensor>
-  Sensor* find_sensor(std::string_view name) {
+  template <typename Interface>
+  Interface& require(std::string_view name) {
     for (const std::unique_ptr<SitlSensor>& sensor : sensors_) {
-      if (sensor->name() == name) {
-        return dynamic_cast<Sensor*>(sensor.get());
+      if (sensor->name() != name) {
+        continue;
       }
-    }
-    return nullptr;
-  }
 
-  template <typename Sensor>
-  const Sensor* find_sensor(std::string_view name) const {
-    for (const std::unique_ptr<SitlSensor>& sensor : sensors_) {
-      if (sensor->name() == name) {
-        return dynamic_cast<const Sensor*>(sensor.get());
+      Interface* interface = dynamic_cast<Interface*>(sensor.get());
+      if (interface == nullptr) {
+        throw std::invalid_argument(
+            "SITL sensor does not implement the required interface: " +
+            std::string{name});
       }
+      return *interface;
     }
-    return nullptr;
+
+    throw std::invalid_argument(
+        "required SITL sensor not found: " + std::string{name});
   }
 
   void update(const sim::SensorTruthInputs& inputs) {

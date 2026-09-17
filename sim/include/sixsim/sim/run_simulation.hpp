@@ -1,5 +1,6 @@
 #pragma once
 
+#include "scenario_config.hpp"
 #include "sixsim/sim/scenario.hpp"
 #include "sixsim/sim/sim_general.hpp"
 #include "sixsim/sim/simulation_event.hpp"
@@ -16,11 +17,11 @@ class Simulation {
  void run();
 
  private:
-  void update_vehicle_state(Vehicle& vehicle);
+  void update_vehicle_state(ConfiguredVehicle& vehicle);
 
   std::filesystem::path output_directory_;
   Scenario scenario_;
-  std::vector<Vehicle> vehicles_;
+  std::vector<ConfiguredVehicle> vehicles_;
   SimTime time_{};
   SimulationEvents events_{};
 };

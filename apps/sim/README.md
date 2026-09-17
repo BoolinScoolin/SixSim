@@ -1,4 +1,4 @@
-# Smoke App
+# Simulation App
 
 From the repository root, configure and build the smoke scenario.
 

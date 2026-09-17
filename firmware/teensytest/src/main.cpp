@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include "hal/fcu/teensytest/timer.hpp"
+#include "hal/physical/teensytest/timer.hpp"
 
-sixsim::hal::TeensyTestTimer timer;
+sixsim::hal::PhysicalTeensyTestTimer timer;
 
 void setup() {
     Serial.begin(115200);

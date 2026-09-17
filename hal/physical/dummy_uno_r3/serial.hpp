@@ -6,7 +6,7 @@
 
 namespace sixsim::hal {
 
-class DummyUnoR3Serial final : public Serial {
+class PhysicalDummyUnoR3Serial final : public Serial {
  public:
   void begin(uint32_t baud_rate) override {
     ::Serial.begin(baud_rate);

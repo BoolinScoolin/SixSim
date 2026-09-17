@@ -1,13 +1,14 @@
 #include <Arduino.h>
-#include "hal/fcu/dummy_uno_r3/fcu.hpp"
+#include "hal/physical/dummy_uno_r3/hal.hpp"
 #include "dummy_uno_r3_config.hpp"
 #include "sixsim/flight/run_cycle.hpp"
 
-sixsim::hal::DummyUnoR3Fcu fcu{sixsim::hal::generated::flight_timing};
+sixsim::hal::PhysicalDummyUnoR3Fcu fcu{
+    sixsim::hal::generated::flight_timing};
 
 void setup() {
-    auto& hardware = fcu.hardware();
-    hardware.begin();
+    auto& devices = fcu.devices();
+    devices.begin(sixsim::hal::generated::serial_baud_rate);
     if (fcu.check_cycle().due) {
         sixsim::flight::run_cycle(fcu);
     }

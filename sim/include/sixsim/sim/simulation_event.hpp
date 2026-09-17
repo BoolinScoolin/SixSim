@@ -18,10 +18,12 @@ struct SimulationEvents {
   SimulationEventFlag stop_simulation{};
 };
 
-inline void evaluate_simulation_events(const SimTime& time,
-                                       const std::vector<Vehicle>& vehicles,
-                                       const SimulationConfig& config,
-                                       SimulationEvents& events) {
+template <typename VehicleType>
+inline void evaluate_simulation_events(
+    const SimTime& time,
+    const std::vector<VehicleType>& vehicles,
+    const SimulationConfig& config,
+    SimulationEvents& events) {
   (void)vehicles;
 
   if (!events.stop_simulation.triggered &&

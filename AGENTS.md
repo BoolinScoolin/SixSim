@@ -113,9 +113,9 @@ SixSim/
 
   hal/
     include/
-    sitl/
-    fcu/
+    physical/
       <fcu_name>/
+    sitl/
 
     tests/
       unit/
@@ -247,7 +247,9 @@ Flight cycle code may use platform-independent HAL interfaces to snapshot sensor
 samples, pass data to algorithms, and write commands. Flight algorithms remain
 independent of simulation and FCU-specific drivers. Keep HAL interfaces under
 `hal/include/`, SITL implementations under `hal/sitl/`, and physical implementations
-under `hal/fcu/<fcu_name>/`.
+under `hal/physical/<fcu_name>/`. Concrete implementation type names must identify
+their backend with a `Physical` or `Sitl` prefix; backend-independent interfaces
+retain broad names such as `Timer`, `Serial`, and `Altimeter`.
 
 Do not introduce flight software object hierarchies or hardware coupling without
 explicit approval. Configuration associated with a future flight algorithm may
