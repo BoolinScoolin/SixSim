@@ -31,6 +31,7 @@ struct Scenario {
   SimulationConfig simulation{};
   double logging_rate_hz{};
   std::filesystem::path source_scenario_path;
+  std::vector<std::filesystem::path> fcu_config_paths;
   std::filesystem::path default_run_directory;
   Environment environment;
 };

@@ -81,6 +81,7 @@ void Simulation::run() {
       output_directory_,
       scenario_.default_run_directory,
       scenario_.source_scenario_path,
+      scenario_.fcu_config_paths,
   };
   SimulationLogger log{artifacts.run_directory(), scenario_.logging_rate_hz};
 

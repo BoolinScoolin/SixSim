@@ -10,12 +10,14 @@ namespace sixsim::sim {
 RunArtifacts::RunArtifacts(
     const std::filesystem::path& output_directory,
     const std::filesystem::path& default_run_directory,
-    const std::filesystem::path& source_scenario_path)
+    const std::filesystem::path& source_scenario_path,
+    const std::vector<std::filesystem::path>& fcu_config_paths)
     : run_directory_(std::filesystem::absolute(
                          output_directory.empty() ? default_run_directory
                                                   : output_directory)
                          .lexically_normal()),
-      source_scenario_path_(source_scenario_path) {
+      source_scenario_path_(source_scenario_path),
+      fcu_config_paths_(fcu_config_paths) {
   const std::filesystem::path current_directory =
       std::filesystem::current_path().lexically_normal();
   if (run_directory_ == run_directory_.root_path() ||
@@ -52,6 +54,15 @@ RunArtifacts::RunArtifacts(
       source_scenario_path_,
       config_directory / "scenario.yaml",
       std::filesystem::copy_options::overwrite_existing);
+
+  const std::filesystem::path fcu_config_directory = config_directory / "fcus";
+  std::filesystem::create_directories(fcu_config_directory);
+  for (const std::filesystem::path& fcu_config_path : fcu_config_paths_) {
+    std::filesystem::copy_file(
+        fcu_config_path,
+        fcu_config_directory / fcu_config_path.filename(),
+        std::filesystem::copy_options::overwrite_existing);
+  }
 }
 
 const std::filesystem::path& RunArtifacts::run_directory() const {
@@ -67,6 +78,12 @@ void RunArtifacts::save_manifest() const {
            << "  original: " << std::quoted(source_scenario_path_.string())
            << '\n'
            << "  copied: \"configs/scenario.yaml\"\n"
+           << "fcus:\n";
+  for (const std::filesystem::path& fcu_config_path : fcu_config_paths_) {
+    manifest << "  - \"configs/fcus/" << fcu_config_path.filename().string()
+             << "\"\n";
+  }
+  manifest
            << "raw:\n"
            << "  truth: \"raw/truth.csv\"\n";
   if (!manifest) {
