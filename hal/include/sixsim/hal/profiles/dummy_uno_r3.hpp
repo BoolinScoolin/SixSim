@@ -2,15 +2,15 @@
 
 #include "sixsim/flight/flight_computer.hpp"
 
-namespace sixsim::hal {
+namespace sixsim::hal::dummy_uno_r3 {
 
 template <typename Hal>
-class DummyUnoR3Fcu final : public flight::FlightComputer {
+class Fcu final : public flight::FlightComputer {
  public:
-  explicit DummyUnoR3Fcu(flight::FlightTimingConfig timing)
+  explicit Fcu(flight::FlightTimingConfig timing)
       : FlightComputer(timing) {}
 
-  DummyUnoR3Fcu(flight::FlightTimingConfig timing, Hal hal)
+  Fcu(flight::FlightTimingConfig timing, Hal hal)
       : FlightComputer(timing),
         hal_(static_cast<Hal&&>(hal)) {}
 
@@ -27,4 +27,4 @@ class DummyUnoR3Fcu final : public flight::FlightComputer {
   Hal hal_;
 };
 
-}  // namespace sixsim::hal
+}  // namespace sixsim::hal::dummy_uno_r3

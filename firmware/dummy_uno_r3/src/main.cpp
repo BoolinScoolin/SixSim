@@ -3,7 +3,7 @@
 #include "dummy_uno_r3_config.hpp"
 #include "sixsim/flight/run_cycle.hpp"
 
-sixsim::hal::PhysicalDummyUnoR3Fcu fcu{
+sixsim::hal::dummy_uno_r3::PhysicalFcu fcu{
     sixsim::hal::generated::flight_timing};
 
 void setup() {

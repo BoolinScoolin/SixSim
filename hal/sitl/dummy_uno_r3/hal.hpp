@@ -10,11 +10,11 @@
 #include <stdexcept>
 #include <utility>
 
-namespace sixsim::hal {
+namespace sixsim::hal::dummy_uno_r3 {
 
-class SitlDummyUnoR3Hal {
+class SitlHal {
  public:
-  explicit SitlDummyUnoR3Hal(
+  explicit SitlHal(
       std::unique_ptr<SitlDeviceRegistry> device_registry)
       : device_registry_(std::move(device_registry)),
         devices_(require_registry(device_registry_)) {}
@@ -45,6 +45,6 @@ class SitlDummyUnoR3Hal {
   SitlTickCounter tick_counter_;
 };
 
-using SitlDummyUnoR3Fcu = DummyUnoR3Fcu<SitlDummyUnoR3Hal>;
+using SitlFcu = Fcu<SitlHal>;
 
-}  // namespace sixsim::hal
+}  // namespace sixsim::hal::dummy_uno_r3

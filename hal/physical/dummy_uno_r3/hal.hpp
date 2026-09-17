@@ -6,9 +6,9 @@
 #include <Arduino.h>
 #include <stdint.h>
 
-namespace sixsim::hal {
+namespace sixsim::hal::dummy_uno_r3 {
 
-class PhysicalDummyUnoR3Hal {
+class PhysicalHal {
  public:
   uint64_t cycle_ticks() const {
     return static_cast<uint64_t>(millis());
@@ -21,6 +21,6 @@ class PhysicalDummyUnoR3Hal {
   PhysicalDummyUnoR3Devices devices_;
 };
 
-using PhysicalDummyUnoR3Fcu = DummyUnoR3Fcu<PhysicalDummyUnoR3Hal>;
+using PhysicalFcu = Fcu<PhysicalHal>;
 
-}  // namespace sixsim::hal
+}  // namespace sixsim::hal::dummy_uno_r3

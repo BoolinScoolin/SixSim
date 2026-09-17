@@ -27,15 +27,6 @@ CPP17_KEYWORDS = frozenset(
     "xor xor_eq".split()
 )
 
-FCU_CPP_TYPES = {
-    "dummy_uno_r3": {
-        "sitl_header": "hal/sitl/dummy_uno_r3/hal.hpp",
-        "sitl_hal_type": "sixsim::hal::SitlDummyUnoR3Hal",
-        "sitl_fcu_type": "sixsim::hal::SitlDummyUnoR3Fcu",
-    },
-}
-
-
 def require_mapping(value, path):
     if not isinstance(value, dict):
         raise ValueError(f"{path} must be a mapping")
@@ -85,8 +76,6 @@ def resolve_fcu_profile(name):
             f"FCU profile {profile_path}.name must match reference {name!r}"
         )
     require_cpp_identifier(profile_name, f"FCU profile {name}.name")
-    if name not in FCU_CPP_TYPES:
-        raise ValueError(f"FCU profile has no registered C++ types: {name}")
     cycle_rate_hz = require_int(profile, "cycle_rate_hz", f"FCU profile {name}")
     if cycle_rate_hz <= 0:
         raise ValueError(f"FCU profile {name}.cycle_rate_hz must be greater than zero")
@@ -128,5 +117,4 @@ def resolve_fcu_profile(name):
         "base_tick_hz": base_tick_hz,
         "cycle_rate_hz": cycle_rate_hz,
         "devices": {**parsed_devices, "sensors": sensors},
-        "cpp_types": FCU_CPP_TYPES[name],
     }

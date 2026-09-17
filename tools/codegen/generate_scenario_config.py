@@ -652,7 +652,7 @@ def render_sitl_sensor_includes(config):
 def render_sitl_fcu_includes(config):
     includes = []
     for profile in config["fcu_profiles"]:
-        include = profile["cpp_types"]["sitl_header"]
+        include = f'hal/sitl/{profile["name"]}/hal.hpp'
         if include not in includes:
             includes.append(include)
     return "\n".join(f'#include "{include}"' for include in includes)
@@ -660,7 +660,7 @@ def render_sitl_fcu_includes(config):
 
 def render_configured_fcu_types(config):
     fcu_types = [
-        profile["cpp_types"]["sitl_fcu_type"]
+        f'sixsim::hal::{profile["name"]}::SitlFcu'
         for profile in config["fcu_profiles"]
     ]
     if not fcu_types:
@@ -695,14 +695,13 @@ def render_fcu_constructions(config):
 
     lines.append("  return ConfiguredFcus{")
     for index, profile in enumerate(config["fcu_profiles"]):
-        cpp_types = profile["cpp_types"]
         lines.extend(
             (
-                f'      {cpp_types["sitl_fcu_type"]}{{',
+                f'      sixsim::hal::{profile["name"]}::SitlFcu{{',
                 "          flight::FlightTimingConfig{",
                 f'              {profile["base_tick_hz"]},',
                 f'              {profile["cycle_rate_hz"]}}},',
-                f'          {cpp_types["sitl_hal_type"]}{{',
+                f'          sixsim::hal::{profile["name"]}::SitlHal{{',
                 f"              std::move(fcu_{index}_devices)}}}},",
             )
         )
