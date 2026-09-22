@@ -7,6 +7,8 @@ import sys
 
 from fcu_profile import (
     render_device_config_assignments,
+    render_sensor_config_assignments,
+    render_sitl_sensor_config_assignments,
     resolve_fcu_profile,
 )
 
@@ -689,6 +691,12 @@ def render_fcu_constructions(config):
         lines.extend(
             f"  {line}"
             for line in render_device_config_assignments(profile, registry + "->")
+        )
+        lines.extend(
+            f"  {line}"
+            for line in render_sitl_sensor_config_assignments(
+                profile, registry + "->sensors()."
+            )
         )
         lines.append("")
 

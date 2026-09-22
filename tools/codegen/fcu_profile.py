@@ -89,6 +89,31 @@ def render_device_config_assignments(profile, devices_expression):
     return lines
 
 
+def render_sensor_config_assignments(profile, sensors_expression):
+    lines = []
+    sensors = profile["devices"]["sensors"]
+    for sensor_name, sensor in sensors.items():
+        for config_name, value in sensor["config"].items():
+            lines.append(
+                f"{sensors_expression}{sensor_name}()"
+                f".config().{config_name} = {cpp_literal(value)};"
+            )
+    return lines
+
+
+def render_sitl_sensor_config_assignments(profile, sensors_expression):
+    lines = []
+    sensors = profile["devices"]["sensors"]
+    for sensor_name, sensor in sensors.items():
+        for config_name, value in sensor["config"].items():
+            lines.append(
+                f'{sensors_expression}require<::sixsim::hal::{sensor["type"]}>'
+                f'("{sensor_name}").config().{config_name} = '
+                f"{cpp_literal(value)};"
+            )
+    return lines
+
+
 def resolve_fcu_profile(name):
     profile_path = REPO_ROOT / "configs" / "fcus" / f"{name}.yaml"
     if not profile_path.is_file():
@@ -177,6 +202,24 @@ def resolve_fcu_profile(name):
             raise ValueError(
                 f"{sensor_path}.type has no SITL implementation: {sitl_path}"
             )
+        sensor_config_values = sensor_config.get("config", {})
+        sensor_config_values = require_mapping(
+            sensor_config_values, f"{sensor_path}.config"
+        )
+        for config_name in sensor_config_values:
+            require_cpp_identifier(
+                config_name, f"{sensor_path}.config key"
+            )
+        sensors[sensor_name] = {
+            "type": sensor_type,
+            "config": {
+                config_name: parse_config_value(
+                    config_value,
+                    f"{sensor_path}.config.{config_name}",
+                )
+                for config_name, config_value in sensor_config_values.items()
+            },
+        }
     return {
         "name": name,
         "base_tick_hz": base_tick_hz,

@@ -14,3 +14,7 @@ devices:
       type: altimeter
     timer:
       type: timer
+      config:
+        multiplier:
+          datatype: double
+          value: 1.0

@@ -5,6 +5,7 @@ import argparse
 
 from fcu_profile import (
     render_device_config_assignments,
+    render_sensor_config_assignments,
     resolve_fcu_profile,
 )
 
@@ -23,7 +24,10 @@ def render_fcu_config_header(profile):
         "inline void configure_devices(Devices& devices) {\n"
         + "\n".join(
             f"  {line}"
-            for line in render_device_config_assignments(profile, "devices.")
+            for line in (
+                render_device_config_assignments(profile, "devices.")
+                + render_sensor_config_assignments(profile, "devices.sensors().")
+            )
         )
         + ("\n" if profile["devices"] else "")
         + "}\n\n"
