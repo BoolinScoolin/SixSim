@@ -7,7 +7,7 @@ namespace sixsim::hal {
 
 class PhysicalDummyUnoR3Sensors {
  public:
-  Timer& timer() { return timer_; }
+  ::sixsim::hal::timer& timer() { return timer_; }
 
  private:
   PhysicalDummyUnoR3Timer timer_;

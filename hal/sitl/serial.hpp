@@ -6,9 +6,9 @@
 
 namespace sixsim::hal {
 
-class SitlSerial final : public Serial {
+class Sitl_serial final : public serial {
  public:
-  void begin(std::uint32_t) override {}
+  void begin() override {}
 
   void print(const char* text) override { std::cout << text; }
 

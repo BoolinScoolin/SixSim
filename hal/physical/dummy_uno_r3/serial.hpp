@@ -6,10 +6,10 @@
 
 namespace sixsim::hal {
 
-class PhysicalDummyUnoR3Serial final : public Serial {
+class PhysicalDummyUnoR3Serial final : public serial {
  public:
-  void begin(uint32_t baud_rate) override {
-    ::Serial.begin(baud_rate);
+  void begin() override {
+    ::Serial.begin(config().baud_rate);
   }
 
   void print(const char* text) override { ::Serial.print(text); }

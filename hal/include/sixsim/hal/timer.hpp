@@ -2,9 +2,9 @@
 
 namespace sixsim::hal {
 
-class Timer {
+class timer {
  public:
-  virtual ~Timer() = default;
+  virtual ~timer() = default;
 
   virtual double read() = 0;
 };

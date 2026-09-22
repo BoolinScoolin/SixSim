@@ -6,7 +6,7 @@
 
 namespace sixsim::hal {
 
-class PhysicalDummyUnoR3Timer final : public Timer {
+class PhysicalDummyUnoR3Timer final : public timer {
  public:
   double read() override {
     return static_cast<double>(millis()) / 1000.0;

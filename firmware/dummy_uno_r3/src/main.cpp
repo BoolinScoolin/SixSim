@@ -8,7 +8,8 @@ sixsim::hal::dummy_uno_r3::PhysicalFcu fcu{
 
 void setup() {
     auto& devices = fcu.devices();
-    devices.begin(sixsim::hal::generated::serial_baud_rate);
+    sixsim::hal::generated::configure_devices(devices);
+    devices.begin();
     if (fcu.check_cycle().due) {
         sixsim::flight::run_cycle(fcu);
     }

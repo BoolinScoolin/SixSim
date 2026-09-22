@@ -7,9 +7,9 @@
 
 namespace sixsim::hal {
 
-class SitlTimer : public Timer, public SitlSensor {
+class Sitl_timer : public timer, public SitlSensor {
  public:
-  explicit SitlTimer(std::string name) : SitlSensor(std::move(name)) {}
+  explicit Sitl_timer(std::string name) : SitlSensor(std::move(name)) {}
 
   void update(const sim::SensorTruthInputs& inputs) override {
     time_s_ = inputs.time.simtime_s;
