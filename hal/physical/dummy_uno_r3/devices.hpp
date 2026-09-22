@@ -6,17 +6,17 @@
 
 namespace sixsim::hal {
 
-class PhysicalDummyUnoR3Devices {
+class Physical_dummy_uno_r3_Devices {
  public:
   void begin() { serial_.begin(); }
 
-  PhysicalDummyUnoR3Sensors& sensors() { return sensors_; }
-  const PhysicalDummyUnoR3Sensors& sensors() const { return sensors_; }
+  Physical_dummy_uno_r3_Sensors& sensors() { return sensors_; }
+  const Physical_dummy_uno_r3_Sensors& sensors() const { return sensors_; }
   ::sixsim::hal::serial& serial() { return serial_; }
 
  private:
-  PhysicalDummyUnoR3Sensors sensors_;
-  PhysicalDummyUnoR3Serial serial_;
+  Physical_dummy_uno_r3_Sensors sensors_;
+  Physical_dummy_uno_r3_Serial serial_;
 };
 
 }  // namespace sixsim::hal

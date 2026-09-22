@@ -72,7 +72,7 @@ firmware must not depend on them.
 Use `Physical` and `Sitl` to distinguish backend implementations. Use `Devices`
 for the flight-facing collection instead of using `Hardware` for both physical
 and simulated objects. For example, `dummy_uno_r3::PhysicalHal` exposes
-`PhysicalDummyUnoR3Devices`, while `dummy_uno_r3::SitlHal` exposes
+`Physical_dummy_uno_r3_Devices`, while `dummy_uno_r3::SitlHal` exposes
 `generated::dummy_uno_r3::SitlDevices`. Flight code reaches the common structural
 surface through `fcu.devices()` and continues to depend on narrow device
 interfaces rather than a universal device inventory.
