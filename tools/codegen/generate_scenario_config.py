@@ -5,7 +5,12 @@ import argparse
 import math
 import sys
 
-from fcu_profile import resolve_fcu_profile
+from fcu_profile import (
+    render_device_config_assignments,
+    render_sensor_config_assignments,
+    render_sitl_sensor_config_assignments,
+    resolve_fcu_profile,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_PYTHON_DIR = REPO_ROOT / "tools" / "python"
@@ -641,12 +646,10 @@ def render_sitl_sensor_includes(config):
         for profile in config["fcu_profiles"]
         for sensor_config in profile["devices"]["sensors"].values()
     }
-    includes = []
-    if "altimeter" in sensor_types:
-        includes.append('#include "hal/sitl/altimeter.hpp"')
-    if "timer" in sensor_types:
-        includes.append('#include "hal/sitl/timer.hpp"')
-    return "\n".join(includes)
+    return "\n".join(
+        f'#include "hal/sitl/{sensor_type}.hpp"'
+        for sensor_type in sorted(sensor_types)
+    )
 
 
 def render_sitl_fcu_includes(config):
@@ -679,18 +682,22 @@ def render_fcu_constructions(config):
             "std::make_unique<hal::SitlDeviceRegistry>();"
         )
         for sensor_name, sensor_config in profile["devices"]["sensors"].items():
-            if sensor_config["type"] == "altimeter":
-                lines.append(
-                    f"  {registry}->sensors()"
-                    f'.create_sensor<hal::SitlAltimeter>'
-                    f'({cpp_string(sensor_name)});'
-                )
-            elif sensor_config["type"] == "timer":
-                lines.append(
-                    f"  {registry}->sensors()"
-                    f'.create_sensor<hal::SitlTimer>'
-                    f'({cpp_string(sensor_name)});'
-                )
+            sensor_type = sensor_config["type"]
+            lines.append(
+                f"  {registry}->sensors()"
+                f'.create_sensor<hal::Sitl_{sensor_type}>'
+                f'({cpp_string(sensor_name)});'
+            )
+        lines.extend(
+            f"  {line}"
+            for line in render_device_config_assignments(profile, registry + "->")
+        )
+        lines.extend(
+            f"  {line}"
+            for line in render_sitl_sensor_config_assignments(
+                profile, registry + "->sensors()."
+            )
+        )
         lines.append("")
 
     lines.append("  return ConfiguredFcus{")

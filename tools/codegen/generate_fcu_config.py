@@ -3,27 +3,11 @@
 from pathlib import Path
 import argparse
 
-from fcu_profile import resolve_fcu_profile
-
-
-DEVICE_INTERFACES = {
-    "serial": {
-        "include": "sixsim/hal/serial.hpp",
-        "registry_accessor": "serial",
-        "type": "Serial",
-    },
-}
-
-SENSOR_INTERFACES = {
-    "altimeter": {
-        "include": "sixsim/hal/altimeter.hpp",
-        "type": "Altimeter",
-    },
-    "timer": {
-        "include": "sixsim/hal/timer.hpp",
-        "type": "Timer",
-    },
-}
+from fcu_profile import (
+    render_device_config_assignments,
+    render_sensor_config_assignments,
+    resolve_fcu_profile,
+)
 
 
 def render_fcu_config_header(profile):
@@ -36,8 +20,17 @@ def render_fcu_config_header(profile):
         f"    {profile['base_tick_hz']},\n"
         f"    {profile['cycle_rate_hz']},\n"
         "};\n\n"
-        "inline constexpr uint32_t serial_baud_rate = "
-        f"{profile['devices']['serial']['baud_rate']};\n\n"
+        "template <typename Devices>\n"
+        "inline void configure_devices(Devices& devices) {\n"
+        + "\n".join(
+            f"  {line}"
+            for line in (
+                render_device_config_assignments(profile, "devices.")
+                + render_sensor_config_assignments(profile, "devices.sensors().")
+            )
+        )
+        + ("\n" if profile["devices"] else "")
+        + "}\n\n"
         "}  // namespace sixsim::hal::generated\n"
     )
 
@@ -51,11 +44,11 @@ def render_sitl_devices_header(profile):
     }
 
     includes = {
-        SENSOR_INTERFACES[config["type"]]["include"]
+        f"sixsim/hal/{config['type']}.hpp"
         for config in sensors.values()
     }
     includes.update(
-        DEVICE_INTERFACES[config["type"]]["include"]
+        f"sixsim/hal/{config['type']}.hpp"
         for config in devices.values()
     )
     includes.add("hal/sitl/device_registry.hpp")
@@ -76,7 +69,7 @@ def render_sitl_devices_header(profile):
     )
     sensor_initializers = [
         f'{name}_(available_sensors.require<'
-        f'{SENSOR_INTERFACES[config["type"]]["type"]}>("{name}"))'
+        f'::sixsim::hal::{config["type"]}>("{name}"))'
         for name, config in sensors.items()
     ]
     for index, initializer in enumerate(sensor_initializers):
@@ -87,11 +80,11 @@ def render_sitl_devices_header(profile):
         lines[-1] += " {}"
     lines.append("")
     for name, config in sensors.items():
-        interface_type = SENSOR_INTERFACES[config["type"]]["type"]
+        interface_type = f"::sixsim::hal::{config['type']}"
         lines.append(f"  {interface_type}& {name}() {{ return {name}_; }}")
     lines.extend(("", " private:"))
     for name, config in sensors.items():
-        interface_type = SENSOR_INTERFACES[config["type"]]["type"]
+        interface_type = f"::sixsim::hal::{config['type']}"
         lines.append(f"  {interface_type}& {name}_;")
     lines.extend(("};", ""))
 
@@ -107,8 +100,7 @@ def render_sitl_devices_header(profile):
     device_initializers = [
         "sensors_(available_devices.sensors())",
         *(
-            f'{name}_(available_devices.'
-            f'{DEVICE_INTERFACES[config["type"]]["registry_accessor"]}())'
+            f'{name}_(available_devices.{config["type"]}())'
             for name, config in devices.items()
         ),
     ]
@@ -124,11 +116,11 @@ def render_sitl_devices_header(profile):
         )
     )
     for name, config in devices.items():
-        interface_type = DEVICE_INTERFACES[config["type"]]["type"]
+        interface_type = f"::sixsim::hal::{config['type']}"
         lines.append(f"  {interface_type}& {name}() {{ return {name}_; }}")
     lines.extend(("", " private:", f"  {sensors_type} sensors_;"))
     for name, config in devices.items():
-        interface_type = DEVICE_INTERFACES[config["type"]]["type"]
+        interface_type = f"::sixsim::hal::{config['type']}"
         lines.append(f"  {interface_type}& {name}_;")
     lines.extend(("};", "", f"}}  // namespace {namespace}", ""))
     return "\n".join(lines)

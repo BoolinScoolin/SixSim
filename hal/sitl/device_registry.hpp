@@ -9,12 +9,12 @@ class SitlDeviceRegistry {
  public:
   SitlSensors& sensors() { return sensors_; }
   const SitlSensors& sensors() const { return sensors_; }
-  SitlSerial& serial() { return serial_; }
-  const SitlSerial& serial() const { return serial_; }
+  Sitl_serial& serial() { return serial_; }
+  const Sitl_serial& serial() const { return serial_; }
 
  private:
   SitlSensors sensors_;
-  SitlSerial serial_;
+  Sitl_serial serial_;
 };
 
 }  // namespace sixsim::hal

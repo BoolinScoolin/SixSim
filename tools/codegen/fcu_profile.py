@@ -42,14 +42,6 @@ def require_int(mapping, key, path):
     return value
 
 
-def require_type(mapping, valid_types, path):
-    actual = mapping.get("type")
-    if actual not in valid_types:
-        valid = ", ".join(sorted(repr(value) for value in valid_types))
-        raise ValueError(f"{path}.type must be one of {valid}, got {actual!r}")
-    return actual
-
-
 def require_cpp_identifier(value, path):
     if (
         not isinstance(value, str)
@@ -58,6 +50,68 @@ def require_cpp_identifier(value, path):
     ):
         raise ValueError(f"{path} must be a valid, non-keyword C++ identifier")
     return value
+
+
+def cpp_literal(value):
+    if value["datatype"] == "int":
+        return str(value["value"])
+    return repr(float(value["value"]))
+
+
+def parse_config_value(value, path):
+    value = require_mapping(value, path)
+    if "datatype" not in value:
+        raise ValueError(f"{path}.datatype is required")
+    if "value" not in value:
+        raise ValueError(f"{path}.value is required")
+    datatype = value.get("datatype")
+    if datatype not in {"int", "double"}:
+        raise ValueError(f"{path}.datatype must be one of 'double', 'int'")
+    actual_value = value.get("value")
+    if datatype == "int":
+        if isinstance(actual_value, bool) or not isinstance(actual_value, int):
+            raise ValueError(f"{path}.value must be an integer")
+    elif isinstance(actual_value, bool) or not isinstance(actual_value, (int, float)):
+        raise ValueError(f"{path}.value must be a number")
+    return {"datatype": datatype, "value": actual_value}
+
+
+def render_device_config_assignments(profile, devices_expression):
+    lines = []
+    for device_name, device in profile["devices"].items():
+        if device_name == "sensors":
+            continue
+        for config_name, value in device["config"].items():
+            lines.append(
+                f"{devices_expression}{device_name}()"
+                f".config().{config_name} = {cpp_literal(value)};"
+            )
+    return lines
+
+
+def render_sensor_config_assignments(profile, sensors_expression):
+    lines = []
+    sensors = profile["devices"]["sensors"]
+    for sensor_name, sensor in sensors.items():
+        for config_name, value in sensor["config"].items():
+            lines.append(
+                f"{sensors_expression}{sensor_name}()"
+                f".config().{config_name} = {cpp_literal(value)};"
+            )
+    return lines
+
+
+def render_sitl_sensor_config_assignments(profile, sensors_expression):
+    lines = []
+    sensors = profile["devices"]["sensors"]
+    for sensor_name, sensor in sensors.items():
+        for config_name, value in sensor["config"].items():
+            lines.append(
+                f'{sensors_expression}require<::sixsim::hal::{sensor["type"]}>'
+                f'("{sensor_name}").config().{config_name} = '
+                f"{cpp_literal(value)};"
+            )
+    return lines
 
 
 def resolve_fcu_profile(name):
@@ -92,15 +146,37 @@ def resolve_fcu_profile(name):
         require_cpp_identifier(device_name, f"FCU profile {name}.devices key")
         device_path = f"FCU profile {name}.devices.{device_name}"
         device_config = require_mapping(device_config, device_path)
-        device_type = require_type(device_config, {"serial"}, device_path)
-        baud_rate = require_int(device_config, "baud_rate", device_path)
-        if baud_rate <= 0 or baud_rate > 0xFFFFFFFF:
+        device_type = device_config.get("type")
+        require_cpp_identifier(device_type, f"{device_path}.type")
+        interface_path = (
+            REPO_ROOT / "hal" / "include" / "sixsim" / "hal"
+            / f"{device_type}.hpp"
+        )
+        sitl_path = REPO_ROOT / "hal" / "sitl" / f"{device_type}.hpp"
+        if not interface_path.is_file():
             raise ValueError(
-                f"{device_path}.baud_rate must be between 1 and 4294967295"
+                f"{device_path}.type has no interface header: {interface_path}"
             )
+        if not sitl_path.is_file():
+            raise ValueError(
+                f"{device_path}.type has no SITL implementation: {sitl_path}"
+            )
+        config = device_config.get("config", {})
+        config = require_mapping(config, f"{device_path}.config")
+        for config_name in config:
+            require_cpp_identifier(
+                config_name, f"{device_path}.config key"
+            )
+        config = {
+            config_name: parse_config_value(
+                config_value,
+                f"{device_path}.config.{config_name}",
+            )
+            for config_name, config_value in config.items()
+        }
         parsed_devices[device_name] = {
             "type": device_type,
-            "baud_rate": baud_rate,
+            "config": config,
         }
     sensors = devices.get("sensors", {})
     if not isinstance(sensors, dict):
@@ -111,7 +187,39 @@ def resolve_fcu_profile(name):
         )
         sensor_path = f"FCU profile {name}.devices.sensors.{sensor_name}"
         sensor_config = require_mapping(sensor_config, sensor_path)
-        require_type(sensor_config, {"altimeter", "timer"}, sensor_path)
+        sensor_type = sensor_config.get("type")
+        require_cpp_identifier(sensor_type, f"{sensor_path}.type")
+        interface_path = (
+            REPO_ROOT / "hal" / "include" / "sixsim" / "hal"
+            / f"{sensor_type}.hpp"
+        )
+        sitl_path = REPO_ROOT / "hal" / "sitl" / f"{sensor_type}.hpp"
+        if not interface_path.is_file():
+            raise ValueError(
+                f"{sensor_path}.type has no interface header: {interface_path}"
+            )
+        if not sitl_path.is_file():
+            raise ValueError(
+                f"{sensor_path}.type has no SITL implementation: {sitl_path}"
+            )
+        sensor_config_values = sensor_config.get("config", {})
+        sensor_config_values = require_mapping(
+            sensor_config_values, f"{sensor_path}.config"
+        )
+        for config_name in sensor_config_values:
+            require_cpp_identifier(
+                config_name, f"{sensor_path}.config key"
+            )
+        sensors[sensor_name] = {
+            "type": sensor_type,
+            "config": {
+                config_name: parse_config_value(
+                    config_value,
+                    f"{sensor_path}.config.{config_name}",
+                )
+                for config_name, config_value in sensor_config_values.items()
+            },
+        }
     return {
         "name": name,
         "base_tick_hz": base_tick_hz,

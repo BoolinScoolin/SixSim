@@ -8,9 +8,9 @@
 
 namespace sixsim::hal {
 
-class SitlAltimeter : public Altimeter, public SitlSensor {
+class Sitl_altimeter : public altimeter, public SitlSensor {
  public:
-  explicit SitlAltimeter(std::string name) : SitlSensor(std::move(name)) {}
+  explicit Sitl_altimeter(std::string name) : SitlSensor(std::move(name)) {}
 
   void update(const sim::SensorTruthInputs& inputs) override {
     sample_.altitude_msl_m =

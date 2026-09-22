@@ -8,9 +8,9 @@ struct AltimeterSample {
   bool valid{false};
 };
 
-class Altimeter {
+class altimeter {
  public:
-  virtual ~Altimeter() = default;
+  virtual ~altimeter() = default;
 
   // Return the latest sample without waiting for a new measurement.
   // Until a measurement is available, return a sample with valid == false.

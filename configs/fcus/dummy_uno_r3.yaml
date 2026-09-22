@@ -5,9 +5,16 @@ cycle_rate_hz: 100
 devices:
   serial:
     type: serial
-    baud_rate: 115200
+    config:
+      baud_rate:
+        datatype: int
+        value: 115200
   sensors:
     altimeter:
       type: altimeter
     timer:
       type: timer
+      config:
+        multiplier:
+          datatype: double
+          value: 1.0

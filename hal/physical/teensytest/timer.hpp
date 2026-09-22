@@ -6,7 +6,7 @@
 
 namespace sixsim::hal {
 
-class PhysicalTeensyTestTimer final : public Timer {
+class PhysicalTeensyTestTimer final : public timer {
  public:
   double read() override {
     return static_cast<double>(millis()) / 1000.0;

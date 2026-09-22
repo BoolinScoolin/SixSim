@@ -14,11 +14,11 @@ class PhysicalHal {
     return static_cast<uint64_t>(millis());
   }
 
-  PhysicalDummyUnoR3Devices& devices() { return devices_; }
-  const PhysicalDummyUnoR3Devices& devices() const { return devices_; }
+  Physical_dummy_uno_r3_Devices& devices() { return devices_; }
+  const Physical_dummy_uno_r3_Devices& devices() const { return devices_; }
 
  private:
-  PhysicalDummyUnoR3Devices devices_;
+  Physical_dummy_uno_r3_Devices devices_;
 };
 
 using PhysicalFcu = Fcu<PhysicalHal>;
