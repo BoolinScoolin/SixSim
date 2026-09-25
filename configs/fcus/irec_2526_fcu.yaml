@@ -1,0 +1,20 @@
+name: irec_2526_fcu
+base_tick_hz: 1000
+cycle_rate_hz: 100
+
+devices:
+  serial:
+    type: serial
+    config:
+      baud_rate:
+        datatype: int
+        value: 115200
+  sensors:
+    altimeter:
+      type: altimeter
+    timer:
+      type: timer
+      config:
+        multiplier:
+          datatype: double
+          value: 1.0
