@@ -119,6 +119,30 @@ function(sixsim_add_scenario scenario)
     ${CMAKE_SOURCE_DIR}/sim/src/run_artifacts.cpp
     ${CMAKE_SOURCE_DIR}/sim/src/run_simulation.cpp
   )
+  if(SIXSIM_SCENARIO_FCU_PROFILES)
+    set(flight_algorithm_sources)
+    foreach(profile IN LISTS SIXSIM_SCENARIO_FCU_PROFILES)
+      sixsim_add_flight_profile_codegen(${profile})
+      add_dependencies(
+        ${target}
+        sixsim_flight_generated_algorithms_${profile}
+      )
+      foreach(algorithm IN LISTS SIXSIM_FLIGHT_PROFILE_ALGORITHMS)
+        set(algorithm_source
+          "${CMAKE_SOURCE_DIR}/flight/src/algorithms/${algorithm}.cpp"
+        )
+        if(NOT EXISTS "${algorithm_source}")
+          message(FATAL_ERROR
+            "Flight algorithm '${algorithm}' has no source file: "
+            "${algorithm_source}"
+          )
+        endif()
+        list(APPEND flight_algorithm_sources "${algorithm_source}")
+      endforeach()
+    endforeach()
+    list(REMOVE_DUPLICATES flight_algorithm_sources)
+    target_sources(${target} PRIVATE ${flight_algorithm_sources})
+  endif()
   set_property(TARGET ${target} PROPERTY SIXSIM_SCENARIO_PATH ${scenario_path})
 
   target_link_libraries(${target} PRIVATE

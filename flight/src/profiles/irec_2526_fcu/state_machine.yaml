@@ -1,0 +1,6 @@
+states:
+  - name: Standby
+    algorithms:
+      - HalAdapter
+      - DoubleAltitude
+      - TripleAltitude

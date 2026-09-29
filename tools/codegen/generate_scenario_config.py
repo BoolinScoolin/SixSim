@@ -655,21 +655,30 @@ def render_sitl_sensor_includes(config):
 def render_sitl_fcu_includes(config):
     includes = []
     for profile in config["fcu_profiles"]:
-        include = f'hal/sitl/{profile["name"]}/hal.hpp'
-        if include not in includes:
-            includes.append(include)
+        for include in (
+            f'hal/sitl/{profile["name"]}/hal.hpp',
+            f'flight/src/profiles/{profile["name"]}/flight_program.hpp',
+        ):
+            if include not in includes:
+                includes.append(include)
+    includes.insert(0, "sixsim/flight/runtime.hpp")
     return "\n".join(f'#include "{include}"' for include in includes)
 
 
 def render_configured_fcu_types(config):
-    fcu_types = [
-        f'sixsim::hal::{profile["name"]}::SitlFcu'
-        for profile in config["fcu_profiles"]
-    ]
-    if not fcu_types:
+    if not config["fcu_profiles"]:
         return "using ConfiguredFcus = std::tuple<>;"
+
+    runtime_types = []
+    for profile in config["fcu_profiles"]:
+        revision = profile["name"]
+        runtime_types.append(
+            "std::unique_ptr<sixsim::flight::FlightRuntime<"
+            f"sixsim::hal::{revision}::SitlFcu, "
+            f"sixsim::flight::{revision}::FlightProgram>>"
+        )
     return "using ConfiguredFcus = std::tuple<\n    " + ",\n    ".join(
-        fcu_types
+        runtime_types
     ) + "\n>;"
 
 
@@ -702,14 +711,19 @@ def render_fcu_constructions(config):
 
     lines.append("  return ConfiguredFcus{")
     for index, profile in enumerate(config["fcu_profiles"]):
+        revision = profile["name"]
         lines.extend(
             (
-                f'      sixsim::hal::{profile["name"]}::SitlFcu{{',
+                f"      std::make_unique<sixsim::flight::FlightRuntime<",
+                f"          sixsim::hal::{revision}::SitlFcu,",
+                f"          sixsim::flight::{revision}::FlightProgram>>(",
+                "          std::in_place,",
                 "          flight::FlightTimingConfig{",
                 f'              {profile["base_tick_hz"]},',
                 f'              {profile["cycle_rate_hz"]}}},',
                 f'          sixsim::hal::{profile["name"]}::SitlHal{{',
-                f"              std::move(fcu_{index}_devices)}}}},",
+                f"              std::move(fcu_{index}_devices)}}",
+                "      ),",
             )
         )
     lines.append("  };")

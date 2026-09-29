@@ -1,6 +1,5 @@
 #pragma once
 
-#include "sixsim/flight/run_cycle.hpp"
 #include "sixsim/sim/models/aerodynamics.hpp"
 #include "sixsim/sim/models/atmosphere.hpp"
 #include "sixsim/sim/models/gravity.hpp"
@@ -37,17 +36,13 @@ struct Scenario {
 };
 
 template <typename Fcu>
-void update_fcu(Fcu& fcu,
-                const SensorTruthInputs& inputs,
-                double dt_s)
-{
+bool update_fcu(Fcu& fcu, const SensorTruthInputs& inputs) {
   fcu.hal().update_sensors(inputs);
+  return fcu.check_cycle().due;
+}
 
-  if (fcu.check_cycle().due)
-  {
-    flight::run_cycle(fcu);
-  }
-
+template <typename Fcu>
+void advance_fcu(Fcu& fcu, double dt_s) {
   const auto ticks =
       static_cast<uint64_t>(dt_s * fcu.base_tick_hz());
   fcu.hal().advance_ticks(ticks);
@@ -70,9 +65,16 @@ struct Vehicle {
 
   void update_fcus(const SimTime& time, const Scenario& scenario) {
     const SensorTruthInputs inputs{time, state, scenario.environment};
+    const auto update_runtime = [&](auto& runtime) {
+      auto& fcu = runtime->fcu();
+      if (update_fcu(fcu, inputs)) {
+        runtime->run_cycle();
+      }
+      advance_fcu(fcu, scenario.simulation.dt_s);
+    };
     std::apply(
         [&](auto&... fcu) {
-          (update_fcu(fcu, inputs, scenario.simulation.dt_s), ...);
+          (update_runtime(fcu), ...);
         },
         fcus);
   }
