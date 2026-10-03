@@ -83,8 +83,8 @@ if common_values_header.is_file():
     env.BuildSources(
         str(Path(env.subst("$BUILD_DIR")) / "flight_algorithms"),
         str(algorithms_directory),
-        src_filter=[f"+<{algorithm_name}.cpp>" for algorithm_name in algorithm_names]
-        + ["-<*>"],
+        src_filter=["-<*>"]
+        + [f"+<{algorithm_name}.cpp>" for algorithm_name in algorithm_names],
     )
 
 subprocess.check_call(
