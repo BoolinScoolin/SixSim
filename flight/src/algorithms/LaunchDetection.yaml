@@ -1,0 +1,7 @@
+name: LaunchDetection
+
+inputs:
+  altitude_msl_m_f64: double
+
+outputs:
+  enter_powered_ascent: bool

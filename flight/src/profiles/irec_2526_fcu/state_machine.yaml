@@ -2,5 +2,21 @@ states:
   - name: Standby
     algorithms:
       - HalAdapter
+      - LaunchDetection
       - DoubleAltitude
       - TripleAltitude
+  - name: POWERED_ASCENT
+    algorithms:
+      - HalAdapter
+  - name: COASTING_ASCENT
+    algorithms:
+      - HalAdapter
+  - name: DROGUE_DESCENT
+    algorithms:
+      - HalAdapter
+  - name: MAIN_DESCENT
+    algorithms:
+      - HalAdapter
+  - name: LANDED
+    algorithms:
+      - HalAdapter
