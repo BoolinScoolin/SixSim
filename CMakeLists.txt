@@ -20,6 +20,8 @@ if(NOT SIXSIM_CODEGEN_IMPORT_RESULT EQUAL 0)
   )
 endif()
 
+add_subdirectory(flight/codegen)
+
 include(cmake/SixSimScenario.cmake)
 
 file(GLOB_RECURSE SIXSIM_SCENARIOS

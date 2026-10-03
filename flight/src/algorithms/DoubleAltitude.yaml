@@ -1,0 +1,7 @@
+name: DoubleAltitude
+
+inputs:
+  altitude_msl_m_f64: double
+
+outputs:
+  doubled_altitude_msl_m_f64: double

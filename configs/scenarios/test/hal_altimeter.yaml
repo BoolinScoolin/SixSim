@@ -5,7 +5,7 @@ simulation:
   integrator: rk4
 
 environment:
-  origin_altitude_msl_m: 200.0
+  origin_altitude_msl_m: 0.0
 
 initial_state:
   rigid_body:
