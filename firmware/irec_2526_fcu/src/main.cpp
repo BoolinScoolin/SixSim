@@ -6,12 +6,12 @@
 
 #include <utility>
 
-using FlightRuntime = sixsim::flight::FlightRuntime<
-    sixsim::hal::irec_2526_fcu::PhysicalFcu,
-    sixsim::flight::irec_2526_fcu::FlightProgram>;
+using IrecFlightRuntime =
+    sixsim::flight::irec_2526_fcu::FlightRuntime<
+        sixsim::hal::irec_2526_fcu::PhysicalFcu>;
 
-FlightRuntime runtime{
-    std::in_place, sixsim::hal::generated::flight_timing};
+IrecFlightRuntime runtime{
+    sixsim::hal::generated::flight_timing};
 
 void setup() {
     auto& fcu = runtime.fcu();

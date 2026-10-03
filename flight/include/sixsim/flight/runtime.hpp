@@ -8,7 +8,7 @@ template <typename Fcu, typename FlightProgram>
 class FlightRuntime {
  public:
   template <typename... FcuArgs>
-  explicit FlightRuntime(std::in_place_t, FcuArgs&&... fcu_args)
+  explicit FlightRuntime(FcuArgs&&... fcu_args)
       : fcu_(std::forward<FcuArgs>(fcu_args)...) {}
 
   FlightRuntime(const FlightRuntime&) = delete;

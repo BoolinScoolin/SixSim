@@ -673,9 +673,8 @@ def render_configured_fcu_types(config):
     for profile in config["fcu_profiles"]:
         revision = profile["name"]
         runtime_types.append(
-            "std::unique_ptr<sixsim::flight::FlightRuntime<"
-            f"sixsim::hal::{revision}::SitlFcu, "
-            f"sixsim::flight::{revision}::FlightProgram>>"
+            f"std::unique_ptr<sixsim::flight::{revision}::FlightRuntime<"
+            f"sixsim::hal::{revision}::SitlFcu>>"
         )
     return "using ConfiguredFcus = std::tuple<\n    " + ",\n    ".join(
         runtime_types
@@ -714,10 +713,9 @@ def render_fcu_constructions(config):
         revision = profile["name"]
         lines.extend(
             (
-                f"      std::make_unique<sixsim::flight::FlightRuntime<",
-                f"          sixsim::hal::{revision}::SitlFcu,",
-                f"          sixsim::flight::{revision}::FlightProgram>>(",
-                "          std::in_place,",
+                f"      std::make_unique<",
+                f"          sixsim::flight::{revision}::FlightRuntime<",
+                f"              sixsim::hal::{revision}::SitlFcu>>(",
                 "          flight::FlightTimingConfig{",
                 f'              {profile["base_tick_hz"]},',
                 f'              {profile["cycle_rate_hz"]}}},',
