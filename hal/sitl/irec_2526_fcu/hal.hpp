@@ -2,15 +2,15 @@
 
 #include "hal/sitl/device_registry.hpp"
 #include "hal/sitl/tick_counter.hpp"
-#include "sixsim/hal/generated/dummy_uno_r3/sitl_devices.hpp"
-#include "sixsim/hal/profiles/dummy_uno_r3.hpp"
+#include "sixsim/hal/generated/irec_2526_fcu/sitl_devices.hpp"
+#include "sixsim/hal/profiles/irec_2526_fcu.hpp"
 #include "sixsim/sim/sim_general.hpp"
 
 #include <memory>
 #include <stdexcept>
 #include <utility>
 
-namespace sixsim::hal::dummy_uno_r3 {
+namespace sixsim::hal::irec_2526_fcu {
 
 class SitlHal {
  public:
@@ -25,8 +25,8 @@ class SitlHal {
     device_registry_->sensors().update(inputs);
   }
 
-  generated::dummy_uno_r3::SitlDevices& devices() { return devices_; }
-  const generated::dummy_uno_r3::SitlDevices& devices() const {
+  generated::irec_2526_fcu::SitlDevices& devices() { return devices_; }
+  const generated::irec_2526_fcu::SitlDevices& devices() const {
     return devices_;
   }
 
@@ -41,10 +41,10 @@ class SitlHal {
   }
 
   std::unique_ptr<SitlDeviceRegistry> device_registry_;
-  generated::dummy_uno_r3::SitlDevices devices_;
+  generated::irec_2526_fcu::SitlDevices devices_;
   SitlTickCounter tick_counter_;
 };
 
 using SitlFcu = Fcu<SitlHal>;
 
-}  // namespace sixsim::hal::dummy_uno_r3
+}  // namespace sixsim::hal::irec_2526_fcu
