@@ -81,8 +81,11 @@ inline RigidBodyDerivative kinematic_derivative(const RigidBodyState& state) {
 }
 
 inline math::Vector3 compute_accel_body(const ForceMoment& force_moment,
-                                        const MassProperties& mass_properties) {
-  return force_moment.force_body_n / mass_properties.mass_kg;
+                                        const MassProperties& mass_properties,
+                                        const math::Vector3& omega_body_rps,
+                                        const math::Vector3& velocity_body_mps) {
+  return force_moment.force_body_n / mass_properties.mass_kg -
+         math::cross(omega_body_rps, velocity_body_mps);
 }
 
 inline math::Vector3 compute_omega_dot_body(
@@ -111,7 +114,10 @@ inline RigidBodyDerivative dynamic_derivative(
     const MassProperties& mass_properties) {
   RigidBodyDerivative derivative{};
   derivative.velocity_body_derivative_mps2 =
-      compute_accel_body(force_moment, mass_properties);
+      compute_accel_body(force_moment,
+                         mass_properties,
+                         state.omega_body_rps,
+                         state.velocity_body_mps);
   derivative.omega_body_derivative_rps2 =
       compute_omega_dot_body(force_moment, mass_properties, state.omega_body_rps);
   return derivative;
