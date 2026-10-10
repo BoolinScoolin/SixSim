@@ -11,6 +11,7 @@ class GravityModel;
 class PropulsionModel;
 class WindModel;
 struct Environment;
+struct RigidBodyDerivative;
 struct RigidBodyState;
 
 struct SimTime {
@@ -21,6 +22,7 @@ struct SimTime {
 struct SensorTruthInputs {
   const SimTime& time;
   const RigidBodyState& vehicle_state;
+  const RigidBodyDerivative& vehicle_derivative;
   const Environment& environment;
 };
 
