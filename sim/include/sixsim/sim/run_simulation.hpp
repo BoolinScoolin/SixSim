@@ -17,6 +17,10 @@ class Simulation {
  void run();
 
  private:
+  ForceMoment evaluate_vehicle_force_moment(
+      ConfiguredVehicle& vehicle,
+      const RigidBodyState& state,
+      const SimTime& time);
   void update_vehicle_state(ConfiguredVehicle& vehicle);
 
   std::filesystem::path output_directory_;

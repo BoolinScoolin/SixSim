@@ -57,6 +57,7 @@ struct Vehicle {
   bool dynamics_enabled{true};
   Fcus fcus;
   RigidBodyState state{};
+  RigidBodyDerivative derivative{};
   MassProperties mass_properties{};
   double unloaded_mass_kg{};
   ActuatorState actuator{};
@@ -64,7 +65,8 @@ struct Vehicle {
   std::unique_ptr<PropulsionModel> propulsion;
 
   void update_fcus(const SimTime& time, const Scenario& scenario) {
-    const SensorTruthInputs inputs{time, state, scenario.environment};
+    const SensorTruthInputs inputs{time, state, derivative,
+                                   scenario.environment};
     const auto update_runtime = [&](auto& runtime) {
       auto& fcu = runtime->fcu();
       if (update_fcu(fcu, inputs)) {
