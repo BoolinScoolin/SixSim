@@ -58,6 +58,7 @@ struct Vehicle {
   Fcus fcus;
   RigidBodyState state{};
   RigidBodyDerivative derivative{};
+  ForceMoment force_moment{};
   MassProperties mass_properties{};
   double unloaded_mass_kg{};
   ActuatorState actuator{};
