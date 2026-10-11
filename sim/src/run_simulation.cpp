@@ -61,6 +61,7 @@ ForceMoment Simulation::evaluate_vehicle_force_moment(
 
 void Simulation::update_vehicle_state(ConfiguredVehicle& vehicle) {
   if (!vehicle.dynamics_enabled) {
+    vehicle.force_moment = {};
     vehicle.derivative = {};
     return;
   }
@@ -136,13 +137,16 @@ void Simulation::run() {
        * Recompute derivative using updated actuator state. Vehicle state derivative now lives at t_k+1.
        */
       if (!current_vehicle.dynamics_enabled) {
+        current_vehicle.force_moment = {};
         current_vehicle.derivative = {};
         continue;
       }
-      const ForceMoment force_moment = evaluate_vehicle_force_moment(
+      current_vehicle.force_moment = evaluate_vehicle_force_moment(
           current_vehicle, current_vehicle.state, time_);
       current_vehicle.derivative = rigid_body_derivative(
-          current_vehicle.state, force_moment, current_vehicle.mass_properties);
+          current_vehicle.state,
+          current_vehicle.force_moment,
+          current_vehicle.mass_properties);
     }
   }
 
