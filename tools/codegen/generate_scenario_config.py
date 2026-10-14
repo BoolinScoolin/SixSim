@@ -6,9 +6,9 @@ import math
 import sys
 
 from fcu_profile import (
-    render_device_config_assignments,
-    render_sensor_config_assignments,
-    render_sitl_sensor_config_assignments,
+    parse_typed_value,
+    render_scenario_fcu_config_assignments,
+    require_cpp_identifier,
     resolve_fcu_profile,
 )
 
@@ -203,6 +203,63 @@ def parse_initial_attitude(rigid_body):
     raise ValueError(
         f"{path} must specify q_body2ned or azimuth_rad/elevation_rad/roll_rad"
     )
+
+
+def resolve_scenario_config_values(owner, supplied_values, path, profile_name):
+    supplied_values = require_mapping(supplied_values, path)
+    common_declarations = owner["config"]
+    sitl_declarations = owner["sitl_config"]
+    parsed_values = {}
+
+    for config_name, config_value in supplied_values.items():
+        config_path = f"{path}.{config_name}"
+        require_cpp_identifier(config_name, config_path)
+        scenario_declarations = [
+            (scope, declaration)
+            for scope, declaration in (
+                ("common", common_declarations.get(config_name)),
+                ("sitl", sitl_declarations.get(config_name)),
+            )
+            if declaration is not None
+            and declaration["value"] == "set_by_scenario"
+        ]
+        if not scenario_declarations:
+            raise ValueError(
+                f"{config_path} is not declared with value: set_by_scenario "
+                f"by FCU profile {profile_name}"
+            )
+        if len(scenario_declarations) > 1:
+            raise ValueError(
+                f"{config_path} is ambiguous because both common and SITL "
+                "config declare it with value: set_by_scenario"
+            )
+
+        scope, declaration = scenario_declarations[0]
+        parsed_values[config_name] = {
+            "scope": scope,
+            "datatype": declaration["datatype"],
+            "value": parse_typed_value(
+                config_value,
+                declaration["datatype"],
+                config_path,
+            ),
+        }
+
+    for scope, declarations in (
+        ("common", common_declarations),
+        ("SITL", sitl_declarations),
+    ):
+        for config_name, declaration in declarations.items():
+            if (
+                declaration["value"] == "set_by_scenario"
+                and config_name not in parsed_values
+            ):
+                raise ValueError(
+                    f"{path}.{config_name} is required by the {scope} config "
+                    "declaration value: set_by_scenario"
+                )
+
+    owner["scenario_config"] = parsed_values
 
 
 # =============================================================================
@@ -558,14 +615,69 @@ def parse_scenario(scenario):
     vehicle_name = vehicle.get("name", "vehicle_0")
     if not isinstance(vehicle_name, str) or not vehicle_name.strip():
         raise ValueError("vehicle.name must be a non-empty string")
-    fcu_names = vehicle.get("fcus", [])
-    if not isinstance(fcu_names, list):
-        raise ValueError("vehicle.fcus must be a list of profile names")
+    fcu_entries = vehicle.get("fcus", [])
+    if not isinstance(fcu_entries, list):
+        raise ValueError("vehicle.fcus must be a list of FCU entries")
     resolved_fcu_profiles = []
-    for index, fcu_name in enumerate(fcu_names):
+    for index, fcu_entry in enumerate(fcu_entries):
+        fcu_path = f"vehicle.fcus[{index}]"
+        fcu_entry = require_mapping(fcu_entry, fcu_path)
+        unknown_keys = set(fcu_entry) - {"profile", "devices"}
+        if unknown_keys:
+            unknown_key = sorted(unknown_keys)[0]
+            raise ValueError(f"{fcu_path}.{unknown_key} is not a supported field")
+        fcu_name = fcu_entry.get("profile")
         if not isinstance(fcu_name, str) or not fcu_name.strip():
-            raise ValueError(f"vehicle.fcus[{index}] must be a non-empty string")
-        resolved_fcu_profiles.append(resolve_fcu_profile(fcu_name))
+            raise ValueError(f"{fcu_path}.profile must be a non-empty string")
+        profile = resolve_fcu_profile(fcu_name)
+
+        scenario_devices = require_mapping(
+            fcu_entry.get("devices", {}), f"{fcu_path}.devices"
+        )
+        profile_devices = profile["devices"]
+        for device_name in scenario_devices:
+            require_cpp_identifier(device_name, f"{fcu_path}.devices key")
+            if device_name not in profile_devices:
+                raise ValueError(
+                    f"{fcu_path}.devices.{device_name} is not declared by "
+                    f"FCU profile {fcu_name}"
+                )
+
+        for device_name, device in profile_devices.items():
+            if device_name == "sensors":
+                scenario_sensors = require_mapping(
+                    scenario_devices.get("sensors", {}),
+                    f"{fcu_path}.devices.sensors",
+                )
+                for sensor_name in scenario_sensors:
+                    require_cpp_identifier(
+                        sensor_name,
+                        f"{fcu_path}.devices.sensors.{sensor_name}",
+                    )
+                    if sensor_name not in device:
+                        raise ValueError(
+                            f"{fcu_path}.devices.sensors.{sensor_name} is not "
+                            f"declared by FCU profile {fcu_name}"
+                        )
+                for sensor_name, sensor in device.items():
+                    sensor_path = (
+                        f"{fcu_path}.devices.sensors.{sensor_name}"
+                    )
+                    resolve_scenario_config_values(
+                        sensor,
+                        scenario_sensors.get(sensor_name, {}),
+                        sensor_path,
+                        fcu_name,
+                    )
+            else:
+                device_path = f"{fcu_path}.devices.{device_name}"
+                resolve_scenario_config_values(
+                    device,
+                    scenario_devices.get(device_name, {}),
+                    device_path,
+                    fcu_name,
+                )
+        resolved_fcu_profiles.append(profile)
     for profile in resolved_fcu_profiles:
         step_ticks = whole_ticks(
             dt_s,
@@ -694,16 +806,12 @@ def render_fcu_constructions(config):
             lines.append(
                 f"  {registry}->sensors()"
                 f'.create_sensor<hal::Sitl_{sensor_type}>'
-                f'({cpp_string(sensor_name)});'
+                f"({cpp_string(sensor_name)});"
             )
         lines.extend(
             f"  {line}"
-            for line in render_device_config_assignments(profile, registry + "->")
-        )
-        lines.extend(
-            f"  {line}"
-            for line in render_sitl_sensor_config_assignments(
-                profile, registry + "->sensors()."
+            for line in render_scenario_fcu_config_assignments(
+                profile, registry + "->"
             )
         )
         lines.append("")

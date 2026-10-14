@@ -23,6 +23,7 @@ class HalAdapter {
 
     auto& timer = fcu.devices().sensors().timer();
     const auto altimeter_sample = fcu.devices().sensors().altimeter().read();
+    const auto imu_sample = fcu.devices().sensors().mti3().read();
     auto& serial = fcu.devices().serial();
     const double adjusted_time = timer.read() * timer.config().multiplier;
 
@@ -36,8 +37,19 @@ class HalAdapter {
     serial.print(altimeter_sample.measurement_time_s);
     serial.print("   ");
 
-    serial.print("Tripled Altimeter Readings: ");
-    serial.print(common.tripled_altitude_msl_m_f64);
+    serial.print("Accelerometer (m/s^2): ");
+    serial.print(imu_sample.a_accel_imu_mps2.x);
+    serial.print(", ");
+    serial.print(imu_sample.a_accel_imu_mps2.y);
+    serial.print(", ");
+    serial.print(imu_sample.a_accel_imu_mps2.z);
+    serial.print("   Gyroscope (rad/s): ");
+    serial.print(imu_sample.w_gyro_imu_rps.x);
+    serial.print(", ");
+    serial.print(imu_sample.w_gyro_imu_rps.y);
+    serial.print(", ");
+    serial.print(imu_sample.w_gyro_imu_rps.z);
+    serial.print("   ");
 
     serial.println();
 
