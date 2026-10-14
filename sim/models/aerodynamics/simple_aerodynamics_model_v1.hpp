@@ -11,6 +11,7 @@ struct SimpleAerodynamicsModelV1Params {
   double fin_planform_area_m2{};
   double fin_normal_force_slope_per_rad{};
   double nose_normal_force_slope_per_rad{};
+  math::Vector3 cg2cp_m_v3{};
 };
 
 class SimpleAerodynamicsModelV1 final : public AerodynamicsModel {

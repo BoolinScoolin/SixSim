@@ -104,6 +104,8 @@ ForceMoment SimpleAerodynamicsModelV1::evaluate(
       nose_normal_force_body(aerodynamic_state,
                              params_.fin_planform_area_m2,
                              params_.nose_normal_force_slope_per_rad);
+  force_moment.moment_body_nm = math::cross(params_.cg2cp_m_v3, force_moment.force_body_n);
+
   return force_moment;
 }
 

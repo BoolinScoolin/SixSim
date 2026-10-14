@@ -37,6 +37,7 @@ models:
     fin_planform_area_m2: 0.02524446564
     fin_normal_force_slope_per_rad: 2.11
     nose_normal_force_slope_per_rad: 2.0
+    cg2cp_m_v3: [-1.0, 0.0, 0.0]
   propulsion:
     type: hardcoded_thrust_curve
     thrust_direction_body: [1.0, 0.0, 0.0]

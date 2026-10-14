@@ -485,6 +485,9 @@ def parse_simple_aerodynamics_model_v1(model_config, path):
         "nose_normal_force_slope_per_rad": require_number(
             model_config, "nose_normal_force_slope_per_rad", path
         ),
+        "cg2cp_m_v3": require_vector(
+            model_config, "cg2cp_m_v3", 3, path
+        ),
     }
 
 
@@ -502,6 +505,7 @@ def construct_simple_aerodynamics_model_v1(parsed):
               {cpp_number(parsed["fin_planform_area_m2"])},
               {cpp_number(parsed["fin_normal_force_slope_per_rad"])},
               {cpp_number(parsed["nose_normal_force_slope_per_rad"])},
+              math::Vector3{cpp_vector(parsed["cg2cp_m_v3"])},
           }});"""
 
 
