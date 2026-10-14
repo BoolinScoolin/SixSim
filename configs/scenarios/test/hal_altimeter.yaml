@@ -43,7 +43,12 @@ models:
 
 vehicle:
   fcus:
-    - irec_2526_fcu
+    - profile: irec_2526_fcu
+      devices:
+        sensors:
+          mti3:
+            position_body_m: [0.0, 0.0, 0.0]
+            q_body2imu: [1.0, 0.0, 0.0, 0.0]
   mass_properties:
     unloaded_mass_kg: 22.452804
     inertia_body_kgm2: [0.098, 17.3574, 17.3574]

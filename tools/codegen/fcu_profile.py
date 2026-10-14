@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 import re
 import sys
 
@@ -58,22 +59,81 @@ def cpp_literal(value):
     return repr(float(value["value"]))
 
 
+def cpp_typed_literal(value):
+    datatype = value["datatype"]
+    actual_value = value["value"]
+    if datatype in {"int", "double"}:
+        return cpp_literal(value)
+    cpp_types = {
+        "vector3": "sixsim::Vector3",
+        "quaternion": "sixsim::Quaternion",
+        "matrix3": "sixsim::Matrix3",
+    }
+    if datatype in cpp_types:
+        values = ", ".join(repr(float(item)) for item in actual_value)
+        if datatype == "matrix3":
+            return f"{cpp_types[datatype]}{{{{{{{values}}}}}}}"
+        return f"{cpp_types[datatype]}{{{values}}}"
+    raise ValueError(f"unsupported C++ config datatype: {datatype}")
+
+
+def parse_typed_value(value, datatype, path):
+    if datatype == "int":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{path} must be an integer")
+        return value
+    if datatype == "double":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{path} must be a number")
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise ValueError(f"{path} must be finite")
+        return parsed
+
+    lengths = {"vector3": 3, "quaternion": 4, "matrix3": 9}
+    if datatype in lengths:
+        length = lengths[datatype]
+        if not isinstance(value, list) or len(value) != length:
+            raise ValueError(f"{path} must be a list of {length} numbers")
+        if not all(
+            not isinstance(item, bool) and isinstance(item, (int, float))
+            for item in value
+        ):
+            raise ValueError(f"{path} must be a list of {length} numbers")
+        parsed = [float(item) for item in value]
+        if not all(math.isfinite(item) for item in parsed):
+            raise ValueError(f"{path} must contain only finite numbers")
+        if datatype == "quaternion":
+            magnitude = math.sqrt(sum(item * item for item in parsed))
+            if not math.isclose(magnitude, 1.0, rel_tol=0.0, abs_tol=1e-6):
+                raise ValueError(f"{path} must be a unit quaternion")
+        return parsed
+
+    raise ValueError(
+        f"{path} datatype must be one of 'double', 'int', 'matrix3', "
+        "'quaternion', 'vector3'"
+    )
+
+
 def parse_config_value(value, path):
     value = require_mapping(value, path)
     if "datatype" not in value:
         raise ValueError(f"{path}.datatype is required")
+    datatype = value.get("datatype")
+    if datatype not in {"int", "double", "vector3", "quaternion", "matrix3"}:
+        raise ValueError(
+            f"{path}.datatype must be one of 'double', 'int', 'matrix3', "
+            "'quaternion', 'vector3'"
+        )
     if "value" not in value:
         raise ValueError(f"{path}.value is required")
-    datatype = value.get("datatype")
-    if datatype not in {"int", "double"}:
-        raise ValueError(f"{path}.datatype must be one of 'double', 'int'")
-    actual_value = value.get("value")
-    if datatype == "int":
-        if isinstance(actual_value, bool) or not isinstance(actual_value, int):
-            raise ValueError(f"{path}.value must be an integer")
-    elif isinstance(actual_value, bool) or not isinstance(actual_value, (int, float)):
-        raise ValueError(f"{path}.value must be a number")
-    return {"datatype": datatype, "value": actual_value}
+    if value["value"] == "set_by_scenario":
+        return {"datatype": datatype, "value": "set_by_scenario"}
+    actual_value = parse_typed_value(value["value"], datatype, f"{path}.value")
+    return {
+        "datatype": datatype,
+        "value": actual_value,
+    }
 
 
 def render_device_config_assignments(profile, devices_expression):
@@ -82,9 +142,11 @@ def render_device_config_assignments(profile, devices_expression):
         if device_name == "sensors":
             continue
         for config_name, value in device["config"].items():
+            if value["value"] == "set_by_scenario":
+                continue
             lines.append(
                 f"{devices_expression}{device_name}()"
-                f".config().{config_name} = {cpp_literal(value)};"
+                f".config().{config_name} = {cpp_typed_literal(value)};"
             )
     return lines
 
@@ -94,23 +156,58 @@ def render_sensor_config_assignments(profile, sensors_expression):
     sensors = profile["devices"]["sensors"]
     for sensor_name, sensor in sensors.items():
         for config_name, value in sensor["config"].items():
+            if value["value"] == "set_by_scenario":
+                continue
             lines.append(
                 f"{sensors_expression}{sensor_name}()"
-                f".config().{config_name} = {cpp_literal(value)};"
+                f".config().{config_name} = {cpp_typed_literal(value)};"
             )
     return lines
 
 
-def render_sitl_sensor_config_assignments(profile, sensors_expression):
+def render_scenario_fcu_config_assignments(profile, devices_expression):
     lines = []
-    sensors = profile["devices"]["sensors"]
-    for sensor_name, sensor in sensors.items():
-        for config_name, value in sensor["config"].items():
-            lines.append(
-                f'{sensors_expression}require<::sixsim::hal::{sensor["type"]}>'
-                f'("{sensor_name}").config().{config_name} = '
-                f"{cpp_literal(value)};"
-            )
+
+    def append_assignments(owner, owner_name, owner_kind):
+        scenario_values = owner.get("scenario_config", {})
+        config_layers = (
+            ("common", owner["config"]),
+            ("sitl", owner["sitl_config"]),
+        )
+        for scope, declarations in config_layers:
+            for config_name, declaration in declarations.items():
+                value = declaration
+                if declaration["value"] == "set_by_scenario":
+                    scenario_value = scenario_values[config_name]
+                    value = {
+                        "datatype": declaration["datatype"],
+                        "value": scenario_value["value"],
+                    }
+
+                type_name = owner["type"]
+                if scope == "sitl":
+                    type_name = f"Sitl_{type_name}"
+                if owner_kind == "sensor":
+                    target = (
+                        f'{devices_expression}sensors().require<'
+                        f'::sixsim::hal::{type_name}>("{owner_name}")'
+                    )
+                else:
+                    target = (
+                        f"static_cast<::sixsim::hal::{type_name}&>("
+                        f"{devices_expression}{owner_name}())"
+                    )
+                lines.append(
+                    f"{target}.config().{config_name} = "
+                    f"{cpp_typed_literal(value)};"
+                )
+
+    for device_name, device in profile["devices"].items():
+        if device_name == "sensors":
+            for sensor_name, sensor in device.items():
+                append_assignments(sensor, sensor_name, "sensor")
+        else:
+            append_assignments(device, device_name, "device")
     return lines
 
 
@@ -174,9 +271,31 @@ def resolve_fcu_profile(name):
             )
             for config_name, config_value in config.items()
         }
+        sitl_config = require_mapping(
+            device_config.get("sitl", {}), f"{device_path}.sitl"
+        )
+        unknown_sitl_keys = set(sitl_config) - {"config"}
+        if unknown_sitl_keys:
+            unknown_key = sorted(unknown_sitl_keys)[0]
+            raise ValueError(
+                f"{device_path}.sitl.{unknown_key} is not a supported field"
+            )
+        sitl_config_values = require_mapping(
+            sitl_config.get("config", {}), f"{device_path}.sitl.config"
+        )
+        for config_name in sitl_config_values:
+            require_cpp_identifier(config_name, f"{device_path}.sitl.config key")
+        sitl_config_values = {
+            config_name: parse_config_value(
+                config_value,
+                f"{device_path}.sitl.config.{config_name}",
+            )
+            for config_name, config_value in sitl_config_values.items()
+        }
         parsed_devices[device_name] = {
             "type": device_type,
             "config": config,
+            "sitl_config": sitl_config_values,
         }
     sensors = devices.get("sensors", {})
     if not isinstance(sensors, dict):
@@ -202,14 +321,23 @@ def resolve_fcu_profile(name):
             raise ValueError(
                 f"{sensor_path}.type has no SITL implementation: {sitl_path}"
             )
-        sensor_config_values = sensor_config.get("config", {})
-        sensor_config_values = require_mapping(
-            sensor_config_values, f"{sensor_path}.config"
+        common_config_values = require_mapping(
+            sensor_config.get("config", {}), f"{sensor_path}.config"
         )
-        for config_name in sensor_config_values:
-            require_cpp_identifier(
-                config_name, f"{sensor_path}.config key"
+        sitl_config = require_mapping(
+            sensor_config.get("sitl", {}), f"{sensor_path}.sitl"
+        )
+        unknown_sitl_keys = set(sitl_config) - {"config"}
+        if unknown_sitl_keys:
+            unknown_key = sorted(unknown_sitl_keys)[0]
+            raise ValueError(
+                f"{sensor_path}.sitl.{unknown_key} is not a supported field"
             )
+        sitl_config_values = require_mapping(
+            sitl_config.get("config", {}), f"{sensor_path}.sitl.config"
+        )
+        for config_name in (*common_config_values, *sitl_config_values):
+            require_cpp_identifier(config_name, f"{sensor_path}.config key")
         sensors[sensor_name] = {
             "type": sensor_type,
             "config": {
@@ -217,7 +345,14 @@ def resolve_fcu_profile(name):
                     config_value,
                     f"{sensor_path}.config.{config_name}",
                 )
-                for config_name, config_value in sensor_config_values.items()
+                for config_name, config_value in common_config_values.items()
+            },
+            "sitl_config": {
+                config_name: parse_config_value(
+                    config_value,
+                    f"{sensor_path}.sitl.config.{config_name}",
+                )
+                for config_name, config_value in sitl_config_values.items()
             },
         }
     return {

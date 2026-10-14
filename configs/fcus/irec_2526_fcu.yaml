@@ -1,6 +1,6 @@
 name: irec_2526_fcu
 base_tick_hz: 1000
-cycle_rate_hz: 100
+cycle_rate_hz: 10
 
 devices:
   serial:
@@ -12,6 +12,28 @@ devices:
   sensors:
     altimeter:
       type: altimeter
+    mti3:
+      type: imu_6dof
+      sitl:
+        config:
+          position_body_m:
+            datatype: vector3
+            value: set_by_scenario
+          q_body2imu:
+            datatype: quaternion
+            value: set_by_scenario
+          accel_bias:
+            datatype: vector3
+            value: [0.0, 0.0, 0.0]
+          accel_sfcc:
+            datatype: matrix3
+            value: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+          gyro_bias:
+            datatype: vector3
+            value: [0.0, 0.0, 0.0]
+          gyro_sfcc:
+            datatype: matrix3
+            value: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
     timer:
       type: timer
       config:
