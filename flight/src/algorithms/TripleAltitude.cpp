@@ -5,7 +5,7 @@ namespace sixsim::flight::algorithms {
 void TripleAltitude::enter() {}
 
 void TripleAltitude::run() {
-  outputs.tripled_altitude_msl_m_f64 = 3.0 * inputs.altitude_msl_m_f64;
+  outputs.tripled_altitude_msl_m_f64 = 3.0 * inputs.altimeter_altitude_msl_m_f64;
 }
 
 void TripleAltitude::exit() {}

@@ -5,7 +5,7 @@ namespace sixsim::flight::algorithms {
 void DoubleAltitude::enter() {}
 
 void DoubleAltitude::run() {
-  outputs.doubled_altitude_msl_m_f64 = 2.0 * inputs.altitude_msl_m_f64;
+  outputs.doubled_altitude_msl_m_f64 = 2.0 * inputs.altimeter_altitude_msl_m_f64;
 }
 
 void DoubleAltitude::exit() {}

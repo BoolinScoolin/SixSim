@@ -21,6 +21,7 @@ Do not attempt to build the full architecture, scaffold every directory with imp
 13. Do not refactor unrelated code while completing a step.
 14. Do not add optional enhancements after finishing the requested work.
 15. When uncertain, choose the smaller implementation and ask.
+16. Do not create commits unless I explicitly ask you to.
 
 A suitable step is something as narrow as:
 

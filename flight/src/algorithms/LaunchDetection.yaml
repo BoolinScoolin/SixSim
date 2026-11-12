@@ -1,7 +1,9 @@
 name: LaunchDetection
 
 inputs:
-  altitude_msl_m_f64: double
+  altimeter_altitude_msl_m_f64: double
+  imu_accel_mps2_v3: v3
+  imu_accel_valid_bool: bool
 
 outputs:
   enter_powered_ascent: bool
