@@ -5,7 +5,9 @@ namespace sixsim::flight::algorithms {
 void LaunchDetection::enter() {}
 
 void LaunchDetection::run() {
-  outputs.enter_powered_ascent = inputs.altitude_msl_m_f64 > 50.0;
+  double accel_norm_mps2 = math::norm(inputs.imu_accel_mps2_v3);
+  outputs.enter_powered_ascent =
+      inputs.imu_accel_valid_bool && accel_norm_mps2 > 20;
 }
 
 void LaunchDetection::exit() {}
