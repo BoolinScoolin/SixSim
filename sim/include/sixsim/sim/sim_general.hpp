@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sixsim/math/vector3.hpp"
-#include "sixsim/sim/models/actuator.hpp"
+#include "sixsim/sim/actuators.hpp"
 
 namespace sixsim::sim {
 
@@ -39,7 +39,7 @@ struct MassProperties {
 struct VehicleContext {
   MassProperties& mass_properties;
   double unloaded_mass_kg{};
-  const ActuatorState& actuator;
+  const Actuators& actuators;
 };
 
 struct AuxiliaryContext {

@@ -25,7 +25,7 @@ ForceMoment Simulation::evaluate_vehicle_force_moment(
   VehicleContext vehicle_context{
       vehicle.mass_properties,
       vehicle.unloaded_mass_kg,
-      vehicle.actuator,
+      vehicle.actuators,
   };
 
   const AuxiliaryContext auxiliary{
@@ -116,6 +116,12 @@ void Simulation::run() {
      */
     for (ConfiguredVehicle& current_vehicle : vehicles_) {
       update_vehicle_state(current_vehicle);
+
+      /*
+       * Advance actuators using the command held from t_k.
+       * Actuator state now lives at t_k+1.
+       */
+      current_vehicle.actuators.update(scenario_.simulation.dt_s);
     }
 
     // Advance simulation time. Updates time to t_k+1
@@ -128,10 +134,6 @@ void Simulation::run() {
        * Control command now lives at t_k+1
        */
       current_vehicle.update_fcus(time_, scenario_);
-
-      /*
-       * NOT IMPLEMENTED: Update actuators. Actuator state now lives at t_k+1.
-       */
 
       /*
        * Recompute derivative using updated actuator state. Vehicle state derivative now lives at t_k+1.

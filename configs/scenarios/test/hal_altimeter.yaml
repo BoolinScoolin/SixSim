@@ -43,6 +43,42 @@ models:
     thrust_direction_body: [1.0, 0.0, 0.0]
 
 vehicle:
+  actuators:
+    - name: upper_tab
+      type: second_order
+      wn_rps: 10.0
+      zeta: 0.7
+      min_deflection: -0.2
+      max_deflection: 0.2
+      max_deflection_rate: 1.0
+      max_deflection_acceleration: 10.0
+      initial_state:
+        deflection: 0.0
+        deflection_rate: 0.0
+    - name: right_tab
+      type: second_order
+      wn_rps: 10.0
+      zeta: 0.7
+      min_deflection: -0.2
+      max_deflection: 0.2
+      max_deflection_rate: 1.0
+      max_deflection_acceleration: 10.0
+    - name: lower_tab
+      type: second_order
+      wn_rps: 10.0
+      zeta: 0.7
+      min_deflection: -0.2
+      max_deflection: 0.2
+      max_deflection_rate: 1.0
+      max_deflection_acceleration: 10.0
+    - name: left_tab
+      type: second_order
+      wn_rps: 10.0
+      zeta: 0.7
+      min_deflection: -0.2
+      max_deflection: 0.2
+      max_deflection_rate: 1.0
+      max_deflection_acceleration: 10.0
   fcus:
     - profile: irec_2526_fcu
       devices:

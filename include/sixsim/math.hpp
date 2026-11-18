@@ -1,5 +1,6 @@
 #pragma once
 
+#include "sixsim/math/constants.hpp"
 #include "sixsim/math/matrix3.hpp"
 #include "sixsim/math/vector3.hpp"
 #include "sixsim/math/quaternion.hpp"

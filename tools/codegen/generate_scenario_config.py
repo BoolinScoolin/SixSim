@@ -591,6 +591,81 @@ MODEL_CATEGORIES = {
 }
 
 
+def parse_actuators(vehicle):
+    entries = vehicle.get("actuators", [])
+    if not isinstance(entries, list):
+        raise ValueError("vehicle.actuators must be a list")
+    parsed = []
+    names = set()
+    parameter_fields = (
+        "wn_rps", "zeta", "min_deflection", "max_deflection",
+        "max_deflection_rate", "max_deflection_acceleration",
+    )
+    for index, entry in enumerate(entries):
+        path = f"vehicle.actuators[{index}]"
+        entry = require_mapping(entry, path)
+        unknown_keys = set(entry) - {"name", "type", "initial_state", *parameter_fields}
+        if unknown_keys:
+            raise ValueError(f"{path} has unknown keys: {', '.join(sorted(unknown_keys))}")
+        name = entry.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{path}.name must be a non-empty string")
+        if name in names:
+            raise ValueError(f"{path}.name duplicates actuator {name!r}")
+        names.add(name)
+        require_type(entry, ("second_order",), path)
+        params = {}
+        for field in parameter_fields:
+            if field in ("wn_rps", "zeta") or field in entry:
+                value = require_number(entry, field, path)
+                if not math.isfinite(value):
+                    raise ValueError(f"{path}.{field} must be finite; omit limits for unbounded defaults")
+                params[field] = value
+        if params["wn_rps"] <= 0.0 or params["zeta"] < 0.0:
+            raise ValueError(f"{path} requires positive wn_rps and nonnegative zeta")
+        for field in ("max_deflection_rate", "max_deflection_acceleration"):
+            if params.get(field, 0.0) < 0.0:
+                raise ValueError(f"{path}.{field} must be nonnegative")
+        minimum = params.get("min_deflection", -math.inf)
+        maximum = params.get("max_deflection", math.inf)
+        if minimum > maximum:
+            raise ValueError(f"{path} requires min_deflection <= max_deflection")
+        initial_path = f"{path}.initial_state"
+        initial = require_mapping(entry.get("initial_state", {}), initial_path)
+        if set(initial) - {"deflection", "deflection_rate"}:
+            raise ValueError(f"{initial_path} only accepts deflection and deflection_rate")
+        state = {}
+        for field in ("deflection", "deflection_rate"):
+            value = require_number(initial, field, initial_path) if field in initial else 0.0
+            if not math.isfinite(value):
+                raise ValueError(f"{initial_path}.{field} must be finite")
+            state[field] = value
+        if not minimum <= state["deflection"] <= maximum:
+            raise ValueError(f"{initial_path}.deflection must be within deflection bounds")
+        if abs(state["deflection_rate"]) > params.get("max_deflection_rate", math.inf):
+            raise ValueError(f"{initial_path}.deflection_rate exceeds the rate limit")
+        parsed.append({"name": name, "params": params, "initial_state": state})
+    return parsed
+
+
+def render_actuator_constructions(config):
+    constructions = []
+    for actuator in config["actuators"]:
+        params = ", ".join(
+            f".{field} = {cpp_number(value)}"
+            for field, value in actuator["params"].items()
+        )
+        state = actuator["initial_state"]
+        constructions.append(
+            "  vehicle.actuators.create_actuator<SecondOrderActuatorModel>(\n"
+            f"      {cpp_string(actuator['name'])},\n"
+            f"      SecondOrderActuatorParams{{{params}}},\n"
+            f"      ActuatorState{{{cpp_number(state['deflection'])}, "
+            f"{cpp_number(state['deflection_rate'])}}});"
+        )
+    return "\n".join(constructions)
+
+
 def load_scenario(path):
     with path.open("r", encoding="utf-8") as stream:
         scenario = yaml.safe_load(stream)
@@ -715,6 +790,7 @@ def parse_scenario(scenario):
     return {
         "origin_altitude_msl_m": origin_altitude_msl_m,
         "vehicle_name": vehicle_name,
+        "actuators": parse_actuators(vehicle),
         "fcu_profiles": resolved_fcu_profiles,
         "dt_s": dt_s,
         "logging_rate_hz": logging_rate_hz,
@@ -904,6 +980,7 @@ def render_scenario_config(config):
 {render_sitl_sensor_includes(config)}
 
 {render_model_includes(config)}
+{'#include "sim/models/actuators/second_order_actuator.hpp"' if config['actuators'] else ''}
 
 #include <memory>
 #include <tuple>
@@ -953,7 +1030,7 @@ inline ConfiguredVehicle build_vehicle() {{
       vehicle.unloaded_mass_kg;
   vehicle.mass_properties.inertia_body_kgm2 =
       {cpp_vector(config["inertia_body_kgm2"])};
-  vehicle.actuator = ActuatorState{{}};
+{render_actuator_constructions(config)}
 
 {render_model_constructions(config, ("aerodynamics", "propulsion"))}
 
