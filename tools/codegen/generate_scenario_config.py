@@ -364,6 +364,32 @@ ATMOSPHERE_MODELS["constant"] = model(
 )
 
 
+# ISA 1976 atmosphere
+
+def parse_isa1976_atmosphere(_model_config, _path):
+    return {}
+
+
+def include_isa1976_atmosphere(_parsed):
+    return '#include "sim/models/atmosphere/isa1976_atmosphere.hpp"'
+
+
+def construct_isa1976_atmosphere(_parsed):
+    return """  scenario.environment.atmosphere =
+      std::make_unique<Isa1976Atmosphere>(
+          scenario.environment.origin_altitude_msl_m);"""
+
+
+ATMOSPHERE_MODELS["isa1976"] = model(
+    "isa1976",
+    parse_isa1976_atmosphere,
+    include_isa1976_atmosphere,
+    construct_isa1976_atmosphere,
+    "sixsim_model_atmosphere_isa1976",
+    ["sim/models/atmosphere/isa1976_atmosphere.cpp"],
+)
+
+
 # =============================================================================
 # Wind Models
 # =============================================================================

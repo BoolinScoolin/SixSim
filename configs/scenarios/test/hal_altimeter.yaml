@@ -18,11 +18,7 @@ initial_state:
 
 models:
   atmosphere:
-    type: constant
-    density_kg_per_m3: 1.225
-    pressure_pa: 101325.0
-    temperature_k: 288.15
-    speed_of_sound_m_per_s: 340.3
+    type: isa1976
   wind:
     type: constant
     wind_ned_mps: [0.0, 0.0, 0.0]
