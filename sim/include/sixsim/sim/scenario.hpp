@@ -1,5 +1,6 @@
 #pragma once
 
+#include "sixsim/sim/actuators.hpp"
 #include "sixsim/sim/models/aerodynamics.hpp"
 #include "sixsim/sim/models/atmosphere.hpp"
 #include "sixsim/sim/models/gravity.hpp"
@@ -61,7 +62,7 @@ struct Vehicle {
   ForceMoment force_moment{};
   MassProperties mass_properties{};
   double unloaded_mass_kg{};
-  ActuatorState actuator{};
+  Actuators actuators;
   std::unique_ptr<AerodynamicsModel> aerodynamics;
   std::unique_ptr<PropulsionModel> propulsion;
 
