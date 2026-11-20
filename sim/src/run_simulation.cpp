@@ -14,7 +14,8 @@ namespace sixsim::sim {
 
 Simulation::Simulation(std::filesystem::path output_directory)
     : output_directory_(std::move(output_directory)),
-      scenario_(build_scenario()) {
+      scenario_(build_scenario()),
+      events_(build_events()) {
   vehicles_.push_back(build_vehicle());
 }
 
@@ -96,9 +97,8 @@ void Simulation::run() {
 
   while (true) {
     // Update simulation events based on the current simulation state.
-    evaluate_simulation_events(
-        time_, vehicles_, scenario_.simulation, events_);
-    if (events_.stop_simulation.triggered) {
+    evaluate_simulation_events(time_, vehicles_, events_, stop_simulation_);
+    if (stop_simulation_.triggered) {
       break;
     }
 
@@ -157,7 +157,7 @@ void Simulation::run() {
   std::cout << "\n===== SIMULATION FINISHED ===== " << '\n';
   std::cout << "final simtime: " << time_.simtime_s << '\n';
   std::cout << "stop simulation trigger time: "
-            << events_.stop_simulation.trigger_time_s << '\n';
+            << stop_simulation_.trigger_time_s << '\n';
   std::cout << "final position NED z: " << std::fixed << std::setprecision(9)
             << vehicle.state.position_ned_m.z << '\n';
   std::cout << "final velocity body x: " << std::fixed << std::setprecision(9)

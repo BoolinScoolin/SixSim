@@ -28,7 +28,6 @@ struct SensorTruthInputs {
 
 struct SimulationConfig {
   double dt_s{};
-  double stop_simulation_time_s{};
 };
 
 struct MassProperties {

@@ -27,7 +27,8 @@ class Simulation {
   Scenario scenario_;
   std::vector<ConfiguredVehicle> vehicles_;
   SimTime time_{};
-  SimulationEvents events_{};
+  SimulationEvents events_;
+  SimulationEventFlag stop_simulation_{};
 };
 
 }  // namespace sixsim::sim
