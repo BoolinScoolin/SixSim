@@ -1,8 +1,12 @@
 simulation:
   dt_s: 0.001
   logging_rate_hz: 100.0
-  stop_simulation_time_s: 17.9
   integrator: rk4
+
+events:
+  - type: StopSimulationAtTimeEvent
+    config:
+      stop_time_s: 17.9
 
 environment:
   origin_altitude_msl_m: 0.0

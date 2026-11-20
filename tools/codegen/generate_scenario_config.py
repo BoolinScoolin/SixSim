@@ -698,6 +698,64 @@ def load_scenario(path):
     return require_mapping(scenario, "scenario")
 
 
+def cpp_event_value(value, path):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float) and math.isfinite(value):
+        return repr(value)
+    if isinstance(value, str):
+        return (cpp_string(value)
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t"))
+    if isinstance(value, list):
+        return "{" + ", ".join(
+            cpp_event_value(item, f"{path}[{index}]")
+            for index, item in enumerate(value)
+        ) + "}"
+    raise ValueError(
+        f"{path} must be a boolean, integer, finite number, string, or list"
+    )
+
+
+def parse_events(scenario):
+    entries = scenario.get("events", [])
+    if not isinstance(entries, list):
+        raise ValueError("events must be a list")
+    events = []
+    for index, entry in enumerate(entries):
+        path = f"events[{index}]"
+        entry = require_mapping(entry, path)
+        unknown_keys = set(entry) - {"type", "config"}
+        if unknown_keys:
+            raise ValueError(f"{path}.{sorted(unknown_keys)[0]} is not a supported field")
+        event_type = require_cpp_identifier(entry.get("type"), f"{path}.type")
+        header = REPO_ROOT / "sim" / "events" / f"{event_type}.hpp"
+        if not header.is_file():
+            raise ValueError(f"{path}.type has no implementation header: {header}")
+        config = require_mapping(entry.get("config", {}), f"{path}.config")
+        fields = {}
+        for name, value in config.items():
+            require_cpp_identifier(name, f"{path}.config key")
+            fields[name] = cpp_event_value(value, f"{path}.config.{name}")
+        events.append({"type": event_type, "config": fields})
+    return events
+
+
+def render_event_constructions(events):
+    lines = []
+    for index, event in enumerate(events):
+        event_type = event["type"]
+        config_name = f"event_{index}_config"
+        lines.append(f"  {event_type}Config {config_name}{{}};")
+        for name, value in event["config"].items():
+            lines.append(f"  {config_name}.{name} = {value};")
+        lines.append(f"  events.add(std::make_unique<{event_type}>({config_name}));")
+    return "\n".join(lines)
+
+
 def parse_scenario(scenario):
     environment = require_mapping(scenario.get("environment", {}), "environment")
     origin_altitude_msl_m = (
@@ -820,9 +878,7 @@ def parse_scenario(scenario):
         "fcu_profiles": resolved_fcu_profiles,
         "dt_s": dt_s,
         "logging_rate_hz": logging_rate_hz,
-        "stop_simulation_time_s": require_number(
-            simulation, "stop_simulation_time_s", "simulation"
-        ),
+        "events": parse_events(scenario),
         "position_ned_m": require_vector(
             rigid_body, "position_ned_m", 3, "initial_state.rigid_body"
         ),
@@ -997,11 +1053,17 @@ def render_build_manifest(config):
 
 
 def render_scenario_config(config):
+    event_includes = "\n".join(
+        f'#include "sim/events/{name}.hpp"'
+        for name in dict.fromkeys(event["type"] for event in config["events"])
+    )
     return f"""#pragma once
 
 {render_integrator_include(config["integrator"])}
 #include "sixsim/flight/flight_computer.hpp"
 #include "sixsim/sim/scenario.hpp"
+#include "sixsim/sim/simulation_event.hpp"
+{event_includes}
 {render_sitl_fcu_includes(config)}
 {render_sitl_sensor_includes(config)}
 
@@ -1024,8 +1086,6 @@ inline Scenario build_scenario() {{
   scenario.environment.origin_altitude_msl_m =
       {cpp_number(config["origin_altitude_msl_m"])};
   scenario.simulation.dt_s = {cpp_number(config["dt_s"])};
-  scenario.simulation.stop_simulation_time_s =
-      {cpp_number(config["stop_simulation_time_s"])};
   scenario.logging_rate_hz = {cpp_number(config["logging_rate_hz"])};
   scenario.source_scenario_path = {cpp_string(config["scenario_path"])};
   scenario.default_run_directory = {cpp_string(config["run_directory"])};
@@ -1034,6 +1094,13 @@ inline Scenario build_scenario() {{
 {render_model_constructions(config, ("atmosphere", "wind", "gravity"))}
 
   return scenario;
+}}
+
+inline SimulationEvents build_events() {{
+  SimulationEvents events{{}};
+{render_event_constructions(config["events"])}
+  events.validate();
+  return events;
 }}
 
 inline ConfiguredFcus build_fcus() {{
